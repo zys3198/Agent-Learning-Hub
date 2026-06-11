@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L0001 - Agent 到底是什么？Chatbot vs Workflow vs Agent vs Multi-Agent</title>
+<style>
+  :root { --bg: #fafafa; --text: #1a1a1a; --accent: #2563eb; --border: #e5e7eb; --code-bg: #f3f4f6; --highlight: #fef3c7; --green-bg: #f0fdf4; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "Noto Sans SC", sans-serif; background: var(--bg); color: var(--text); line-height: 1.75; max-width: 780px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 1.75rem; margin-bottom: 0.5rem; border-bottom: 2px solid var(--accent); padding-bottom: 0.5rem; }
+  h2 { font-size: 1.35rem; margin-top: 2rem; color: var(--accent); }
+  h3 { font-size: 1.1rem; margin-top: 1.5rem; }
+  p { margin: 0.75rem 0; }
+  code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.9em; }
+  pre { background: var(--code-bg); padding: 1rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; font-size: 0.85rem; line-height: 1.6; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+  th, td { border: 1px solid var(--border); padding: 0.6rem 0.8rem; text-align: left; }
+  th { background: #f0f4ff; font-weight: 600; }
+  .quiz { background: #eff6ff; border-left: 4px solid var(--accent); padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .quiz h3 { color: var(--accent); margin-top: 0; }
+  .quiz-option { display: block; margin: 0.4rem 0; padding: 0.5rem 0.75rem; background: white; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+  .quiz-option:hover { border-color: var(--accent); background: #f0f4ff; }
+  .quiz-option.correct { background: #dcfce7; border-color: #16a34a; }
+  .quiz-option.wrong { background: #fee2e2; border-color: #dc2626; }
+  .quiz-feedback { margin-top: 0.75rem; padding: 0.75rem; border-radius: 6px; display: none; font-size: 0.9rem; }
+  .interview { background: var(--highlight); border-left: 4px solid #f59e0b; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .interview::before { content: "🎯 面试角度"; font-weight: 700; display: block; margin-bottom: 0.5rem; color: #92400e; }
+  .analogy { background: var(--green-bg); border-left: 4px solid #16a34a; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .analogy::before { content: "☕ Java 后端类比"; font-weight: 700; display: block; margin-bottom: 0.5rem; color: #166534; }
+  .key-point { background: #fef2f2; border: 1px solid #fecaca; padding: 0.75rem 1rem; border-radius: 8px; margin: 1rem 0; }
+  .key-point::before { content: "⚠️ 关键区分"; font-weight: 700; display: block; margin-bottom: 0.3rem; color: #dc2626; }
+  .nav { display: flex; justify-content: space-between; margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+  .nav a { color: var(--accent); text-decoration: none; }
+  .tip { background: #f8fafc; padding: 0.75rem 1rem; border-radius: 8px; margin: 1rem 0; font-size: 0.9rem; color: #475569; }
+  .exercise { background: var(--green-bg); border-left: 4px solid #16a34a; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .exercise::before { content: "✏️ 动手练习"; font-weight: 700; display: block; margin-bottom: 0.5rem; color: #166534; }
+  .pattern-box { background: #f8fafc; border: 1px solid var(--border); padding: 0.75rem 1rem; border-radius: 8px; margin: 0.75rem 0; }
+  .pattern-box strong { color: var(--accent); }
+  .ref { background: #eff6ff; border-left: 4px solid var(--accent); padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .ref::before { content: "📖 延伸阅读"; font-weight: 700; display: block; margin-bottom: 0.5rem; color: var(--accent); }
+  ul, ol { margin-left: 1.2rem; margin-bottom: 0.5rem; }
+  li { margin-bottom: 0.3rem; }
+  .diagram { background: white; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin: 1.25rem 0; text-align: center; overflow-x: auto; }
+  .diagram svg { max-width: 100%; height: auto; }
+  .diagram figcaption { font-size: 0.85rem; color: #64748b; margin-top: 0.5rem; }
+  @media print { body { max-width: 100%; } .diagram { page-break-inside: avoid; } }
+</style>
+</head>
+<body>
+
+<h1>L0001 - Agent 到底是什么？</h1>
+<p><strong>Chatbot vs Workflow vs Agent vs Multi-Agent · 五种 Agent 模式 · 何时该用 Agent</strong></p>
+
+<h2>1. 四种 LLM 应用形态</h2>
+
+<p>LLM 应用不是只有"聊天机器人"。按<strong>决策权</strong>从人到机器排列：</p>
+
+<table>
+  <tr>
+    <th>类型</th>
+    <th>决策者</th>
+    <th>执行流程</th>
+    <th>Java 类比</th>
+    <th>典型例子</th>
+  </tr>
+  <tr>
+    <td><strong>Chatbot</strong></td>
+    <td>人（用户主导）</td>
+    <td>一问一答，无工具，无多步推理</td>
+    <td>Controller 返回 JSON，不调 Service</td>
+    <td>ChatGPT 基础对话</td>
+  </tr>
+  <tr>
+    <td><strong>Workflow</strong></td>
+    <td>代码（预定义 DAG）</td>
+    <td>固定步骤：A → B → C，条件分支写在代码里</td>
+    <td>Spring Batch / Airflow DAG</td>
+    <td>发票 OCR → 数据校验 → 入库</td>
+  </tr>
+  <tr>
+    <td><strong>Agent</strong></td>
+    <td>LLM（动态决策）</td>
+    <td>LLM 自己决定调什么工具、调几次、什么时候停</td>
+    <td>DispatcherServlet + 反射调用，但由 LLM 选方法</td>
+    <td>Claude Code、Cursor Agent</td>
+  </tr>
+  <tr>
+    <td><strong>Multi-Agent</strong></td>
+    <td>多个 LLM 协作</td>
+    <td>Supervisor/Router 编排多个专职 Agent</td>
+    <td>微服务 + API Gateway</td>
+    <td>DeerFlow、MetaGPT</td>
+  </tr>
+</table>
+
+<div class="analogy">
+  <strong>一图理解</strong>：<br>
+  Chatbot ≈ <code>@RestController</code>，直接返回，无业务逻辑。<br>
+  Workflow ≈ Spring Batch Job，Step 写死在配置里。<br>
+  Agent ≈ 一个带反射的 Dispatcher——<code>method = llm.decide(context)</code>，<code>method.invoke()</code>。<br>
+  Multi-Agent ≈ 微服务集群，每个 Agent 是一个 Service，通过 Gateway 编排。
+</div>
+
+<div class="key-point">
+  <strong>核心区分维度只有一个：谁决定下一步做什么？</strong><br>
+  Chatbot → 人决定。<br>
+  Workflow → 代码决定（if/else/switch）。<br>
+  Agent → LLM 决定。<br>
+  面试中只要答清这一条，就过了及格线。
+</div>
+
+<h2>2. Agent 的核心循环：Observe → Think → Act</h2>
+
+<p>所有 Agent 都跑同一个循环，来源是 2022 年的 <a href="https://arxiv.org/abs/2210.03629">ReAct 论文</a>（Reasoning + Acting）：</p>
+
+<figure class="diagram">
+<svg viewBox="0 0 560 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Agent Loop 循环图">
+  <defs>
+    <marker id="arrowBlue" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#2563eb"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#16a34a"/>
+    </marker>
+    <marker id="arrowRed" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#dc2626"/>
+    </marker>
+  </defs>
+
+  <!-- Observe -->
+  <rect x="30" y="40" width="160" height="74" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+  <text x="110" y="73" text-anchor="middle" font-size="18" font-weight="700" fill="#1e3a8a">Observe</text>
+  <text x="110" y="96" text-anchor="middle" font-size="12" fill="#475569">收集状态 / 工具结果</text>
+
+  <!-- Think -->
+  <rect x="370" y="40" width="160" height="74" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+  <text x="450" y="73" text-anchor="middle" font-size="18" font-weight="700" fill="#1e3a8a">Think</text>
+  <text x="450" y="96" text-anchor="middle" font-size="12" fill="#475569">LLM 决策下一步</text>
+
+  <!-- Act -->
+  <rect x="200" y="226" width="160" height="74" rx="12" fill="#f0fdf4" stroke="#16a34a" stroke-width="2"/>
+  <text x="280" y="259" text-anchor="middle" font-size="18" font-weight="700" fill="#166534">Act</text>
+  <text x="280" y="282" text-anchor="middle" font-size="12" fill="#475569">执行工具调用</text>
+
+  <!-- Observe -> Think -->
+  <line x1="192" y1="77" x2="365" y2="77" stroke="#2563eb" stroke-width="2.2" marker-end="url(#arrowBlue)"/>
+
+  <!-- Think -> Act -->
+  <path d="M 410 116 Q 360 175 335 222" stroke="#2563eb" stroke-width="2.2" fill="none" marker-end="url(#arrowBlue)"/>
+
+  <!-- Act -> Observe (loop back) -->
+  <path d="M 225 224 Q 145 165 115 117" stroke="#16a34a" stroke-width="2.2" fill="none" marker-end="url(#arrowGreen)"/>
+
+  <!-- loop label -->
+  <text x="138" y="200" text-anchor="middle" font-size="12" font-weight="600" fill="#16a34a">有工具调用 → 继续循环</text>
+
+  <!-- exit: Think -> 返回答案 -->
+  <line x1="532" y1="77" x2="552" y2="77" stroke="#dc2626" stroke-width="2.2" marker-end="url(#arrowRed)"/>
+  <text x="450" y="138" text-anchor="middle" font-size="12" font-weight="600" fill="#dc2626">无工具调用 → 返回最终答案</text>
+
+  <!-- exit label outside -->
+  <text x="548" y="62" text-anchor="end" font-size="11" fill="#dc2626">退出</text>
+</svg>
+<figcaption>Agent Loop：Observe → Think → Act 三步循环，无工具调用时退出</figcaption>
+</figure>
+
+<p>伪代码：</p>
+<pre>
+messages = [{"role": "user", "content": user_input}]
+
+while steps &lt; MAX_STEPS:
+    # 1. Observe + Think: 把当前状态发给 LLM
+    response = llm.chat(messages, tools=available_tools)
+
+    # 2. 判断：LLM 决定是调工具还是直接回答
+    if response.has_tool_calls:
+        # 3. Act: 执行工具，把结果追加回 messages
+        tool_results = execute_tools(response.tool_calls)
+        messages.append(response)           # LLM 的 tool_call 决策
+        messages.append(tool_results)       # 工具执行结果
+        steps += 1
+    else:
+        return response.content  # 最终答案，循环结束
+</pre>
+
+<div class="analogy">
+  Agent Loop ≈ <strong>事件循环</strong>（Event Loop）。<br>
+  <code>Observe</code> ≈ 从事件队列取事件。<br>
+  <code>Think</code> ≈ 事件处理器的决策逻辑。<br>
+  <code>Act</code> ≈ 执行副作用（DB 写入、RPC 调用等）。<br>
+  循环直到事件队列为空——Agent 里是直到 LLM 不再调工具。
+</div>
+
+<h2>3. Anthropic 五种模式：从简单到复杂</h2>
+
+<p>来源：<a href="https://www.anthropic.com/engineering/building-effective-agents">Building Effective Agents</a>（Anthropic 官方工程博客，2024 年 12 月）。核心观点：<strong>从简单开始，确认不够再升级</strong>。</p>
+
+<div class="pattern-box">
+  <strong>模式 1: Augmented LLM</strong>（增强 LLM）<br>
+  LLM + 工具，但只有一步，不循环。用户问 → LLM 调工具 → 返回。<br>
+  <span style="color:#64748b">类比：带 @Autowired 的 Controller——可以调 Service，但流程不循环。</span>
+</div>
+
+<div class="pattern-box">
+  <strong>模式 2: Prompt Chaining</strong>（提示链）<br>
+  A 的输出作为 B 的输入，串行执行。每步之间可以加<strong>检查点</strong>（guard）。<br>
+  <span style="color:#64748b">类比：责任链模式（Filter Chain）——每个 Filter 处理完传给下一个。</span>
+</div>
+
+<div class="pattern-box">
+  <strong>模式 3: Routing</strong>（路由）<br>
+  先分类输入，再路由到不同处理分支。类似 Controller 的 URL 路由。<br>
+  <span style="color:#64748b">类比：<code>@RequestMapping</code>——根据请求路径分发到不同 handler。</span>
+</div>
+
+<div class="pattern-box">
+  <strong>模式 4: Parallelization</strong>（并行）<br>
+  多个 LLM 调用同时执行，结果汇总。分 sectioning（分段处理）和 voting（投票）。<br>
+  <span style="color:#64748b">类比：<code>CompletableFuture.allOf()</code>——并行调多个 Service，汇总结果。</span>
+</div>
+
+<div class="pattern-box">
+  <strong>模式 5: Orchestrator-Workers</strong>（编排者-执行者）<br>
+  一个 LLM 做规划，动态分解子任务，分发给多个 LLM 执行，汇总结果。<br>
+  <span style="color:#64748b">类比：Master-Worker 模式——Master 分配任务，Worker 执行，结果汇总。</span>
+</div>
+
+<div class="pattern-box">
+  <strong>模式 6: Autonomous Agent</strong>（自主 Agent）<br>
+  LLM 自己规划、执行、反思，人类只在必要时介入。最灵活，但也最难控制。<br>
+  <span style="color:#64748b">类比：后台守护线程——有自主逻辑，只在异常时通知人。</span>
+</div>
+
+<p>复杂度递增：</p>
+<figure class="diagram">
+<svg viewBox="0 0 580 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="六种 Agent 模式复杂度递增阶梯图">
+  <defs>
+    <linearGradient id="stepGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#dbeafe"/>
+      <stop offset="100%" stop-color="#bfdbfe"/>
+    </linearGradient>
+  </defs>
+
+  <!-- baseline arrow -->
+  <line x1="20" y1="220" x2="560" y2="220" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowGrey)"/>
+  <polygon points="560,220 552,216 552,224" fill="#94a3b8"/>
+  <text x="556" y="234" text-anchor="end" font-size="11" fill="#94a3b8">复杂度 / 自主性递增</text>
+
+  <!-- 6 staircase boxes, ascending -->
+  <!-- 1 Augmented LLM -->
+  <rect x="22" y="170" width="85" height="46" rx="6" fill="url(#stepGrad)" stroke="#60a5fa" stroke-width="1.5"/>
+  <text x="64.5" y="190" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a8a">① 增强 LLM</text>
+  <text x="64.5" y="207" text-anchor="middle" font-size="10" fill="#475569">单步</text>
+
+  <!-- 2 Prompt Chaining -->
+  <rect x="111" y="147" width="85" height="46" rx="6" fill="url(#stepGrad)" stroke="#60a5fa" stroke-width="1.5"/>
+  <text x="153.5" y="167" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a8a">② 提示链</text>
+  <text x="153.5" y="184" text-anchor="middle" font-size="10" fill="#475569">串行</text>
+
+  <!-- 3 Routing -->
+  <rect x="200" y="124" width="85" height="46" rx="6" fill="url(#stepGrad)" stroke="#60a5fa" stroke-width="1.5"/>
+  <text x="242.5" y="144" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a8a">③ 路由</text>
+  <text x="242.5" y="161" text-anchor="middle" font-size="10" fill="#475569">分支</text>
+
+  <!-- 4 Parallelization -->
+  <rect x="289" y="101" width="85" height="46" rx="6" fill="url(#stepGrad)" stroke="#60a5fa" stroke-width="1.5"/>
+  <text x="331.5" y="121" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a8a">④ 并行</text>
+  <text x="331.5" y="138" text-anchor="middle" font-size="10" fill="#475569">同时执行</text>
+
+  <!-- 5 Orchestrator-Workers -->
+  <rect x="378" y="78" width="85" height="46" rx="6" fill="#bfdbfe" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="420.5" y="98" text-anchor="middle" font-size="12" font-weight="700" fill="#1e3a8a">⑤ 编排-执行</text>
+  <text x="420.5" y="115" text-anchor="middle" font-size="10" fill="#475569">动态分解</text>
+
+  <!-- 6 Autonomous -->
+  <rect x="467" y="55" width="85" height="46" rx="6" fill="#2563eb" stroke="#1e40af" stroke-width="1.5"/>
+  <text x="509.5" y="75" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff">⑥ 自主 Agent</text>
+  <text x="509.5" y="92" text-anchor="middle" font-size="10" fill="#dbeafe">完全自主</text>
+
+  <!-- ascending dotted line along tops -->
+  <path d="M 64.5 170 L 153.5 147 L 242.5 124 L 331.5 101 L 420.5 78 L 509.5 55" stroke="#3b82f6" stroke-width="1.2" stroke-dasharray="3,3" fill="none"/>
+</svg>
+<figcaption>从单步调用到完全自主：能不用 Agent 就不用，确认不够再升级</figcaption>
+</figure>
+
+<div class="interview">
+  "Agent 有哪些常见模式？"<br><br>
+  不要只说 "Agent 就是 LLM 加工具"。要说：<br>
+  (1) Anthropic 定义了 6 种模式，从简单到复杂<br>
+  (2) <strong>不是所有 Agent 都需要自主循环</strong>——简单的 Routing/Prompt Chaining 也是 Agent<br>
+  (3) 实际项目通常混用——关键路径用 Workflow，模糊地带用 Agent
+</div>
+
+<h2>4. OpenAI 的三个组件：Model + Tools + Instructions</h2>
+
+<p>来源：<a href="https://openai.com/business/guides-and-resources/a-practical-guide-to-building-ai-agents/">A Practical Guide to Building AI Agents</a>（OpenAI 官方，2025 年 1 月）。核心框架：</p>
+
+<table>
+  <tr><th>组件</th><th>作用</th><th>Java 类比</th></tr>
+  <tr><td><strong>Model</strong></td><td>LLM 大脑——推理、决策、生成</td><td>Spring Bean 的业务逻辑</td></tr>
+  <tr><td><strong>Tools</strong></td><td>Agent 的"手"——搜索、计算、读写文件、调 API</td><td>Service 层的依赖注入</td></tr>
+  <tr><td><strong>Instructions</strong></td><td>行为规则——System Prompt + 约束 + 护栏</td><td>配置文件 + AOP 拦截器</td></tr>
+</table>
+
+<p><strong>Guardrails（护栏）是必须的</strong>：</p>
+<ul>
+  <li><strong>输出校验</strong>：LLM 输出格式不对就重试（类比 <code>@Valid</code> 参数校验）</li>
+  <li><strong>工具权限</strong>：只暴露必要的工具（类比 Spring Security 方法鉴权）</li>
+  <li><strong>人工确认</strong>：高风险操作前暂停等确认（类比审批流）</li>
+  <li><strong>成本上限</strong>：限制最大步数和 token 预算（类比 Rate Limiter）</li>
+</ul>
+
+<h2>5. 什么时候不该用 Agent？</h2>
+
+<p>Agent 引入三类风险：<strong>不确定性</strong>（LLM 可能选错工具）、<strong>成本</strong>（每次 LLM 调用都要钱）、<strong>延迟</strong>（多步循环比单次调用慢）。</p>
+
+<table>
+  <tr><th>场景</th><th>为什么不用 Agent</th><th>该用什么</th></tr>
+  <tr><td>任务流程固定</td><td>LLM 决策多余且不可靠</td><td>Workflow（Spring Batch）</td></tr>
+  <tr><td>任务可预测</td><td>脚本足够，Agent 增加延迟和成本</td><td>普通脚本 / REST API</td></tr>
+  <tr><td>对准确性要求极高</td><td>LLM 有幻觉风险</td><td>规则引擎 + 人工审核</td></tr>
+  <tr><td>成本敏感</td><td>每次 LLM 调用都有 token 费用</td><td>缓存 + 模板</td></tr>
+</table>
+
+<div class="interview">
+  "你的场景为什么需要 Agent，而不是 Workflow？"<br><br>
+  回答模板：<em>"当任务步骤<strong>无法预定义</strong>、需要根据中间结果<strong>动态决策</strong>时，才需要 Agent。如果流程固定、输入输出可枚举，Workflow 更可靠且成本更低。实际项目中通常混用——关键路径用 Workflow 保可靠性，模糊地带用 Agent 处理意外。"</em>
+</div>
+
+<h2>6. 自测题</h2>
+
+<div class="quiz" id="q1">
+  <h3>题目 1：以下哪个场景最适合用 Agent？</h3>
+  <label class="quiz-option" onclick="check(this, false)">A. 用户注册后发欢迎邮件</label>
+  <label class="quiz-option" onclick="check(this, true)">B. 根据用户模糊描述，搜索多个数据源并综合回答</label>
+  <label class="quiz-option" onclick="check(this, false)">C. 每天凌晨跑批处理对账</label>
+  <label class="quiz-option" onclick="check(this, false)">D. 订单状态变更时推送通知</label>
+  <div class="quiz-feedback" id="q1f" style="background:#dcfce7;color:#166534;">
+    正确。B 需要动态决定搜什么、搜几个源、怎么综合——这是 Agent 的强项。A/C/D 流程固定，用 Workflow 或脚本更可靠。
+  </div>
+</div>
+
+<div class="quiz" id="q2">
+  <h3>题目 2：Agent Loop 里 "Think" 阶段做什么？</h3>
+  <label class="quiz-option" onclick="check(this, false)">A. 执行工具调用</label>
+  <label class="quiz-option" onclick="check(this, false)">B. 收集用户输入</label>
+  <label class="quiz-option" onclick="check(this, true)">C. LLM 根据上下文决定下一步行动（调工具 or 返回答案）</label>
+  <label class="quiz-option" onclick="check(this, false)">D. 压缩上下文</label>
+  <div class="quiz-feedback" id="q2f" style="background:#dcfce7;color:#166534;">
+    正确。"Think" 是 LLM 的推理/决策阶段：分析当前状态，决定是调工具还是直接给出最终答案。
+  </div>
+</div>
+
+<div class="quiz" id="q3">
+  <h3>题目 3：以下哪个不是 Agent 必须的组件？</h3>
+  <label class="quiz-option" onclick="check(this, false)">A. LLM（决策）</label>
+  <label class="quiz-option" onclick="check(this, false)">B. Tools（执行能力）</label>
+  <label class="quiz-option" onclick="check(this, true)">C. 向量数据库</label>
+  <label class="quiz-option" onclick="check(this, false)">D. 循环机制（多步执行）</label>
+  <div class="quiz-feedback" id="q3f" style="background:#dcfce7;color:#166534;">
+    正确。向量数据库是 RAG 的组件，不是 Agent 必需的。最简 Agent = LLM + 工具 + 循环。
+  </div>
+</div>
+
+<div class="quiz" id="q4">
+  <h3>题目 4：Anthropic 五种模式中，Prompt Chaining 最接近哪个 Java 模式？</h3>
+  <label class="quiz-option" onclick="check(this, false)">A. 观察者模式</label>
+  <label class="quiz-option" onclick="check(this, true)">B. 责任链模式（Chain of Responsibility）</label>
+  <label class="quiz-option" onclick="check(this, false)">C. 单例模式</label>
+  <label class="quiz-option" onclick="check(this, false)">D. 工厂模式</label>
+  <div class="quiz-feedback" id="q4f" style="background:#dcfce7;color:#166534;">
+    正确。Prompt Chaining 是串行链——A 的输出给 B，B 的输出给 C，中间可以加检查点。和 Servlet Filter Chain / Spring Interceptor Chain 是同一个思路。
+  </div>
+</div>
+
+<h2>7. 动手练习</h2>
+
+<div class="exercise">
+  <strong>练习：写一段 500 字以内的短笔记</strong><br><br>
+  主题：<em>"我的场景为什么需要 Agent，而不是普通 Workflow？"</em><br><br>
+  要求：<br>
+  1. 包含一个你实际工作中的<strong>具体业务场景</strong>（如客服工单处理、日志分析、代码审查等）<br>
+  2. 说明为什么 Workflow 不够用（哪一步需要"判断力"？）<br>
+  3. 说明 Agent 带来的风险和你打算怎么控制（护栏）<br><br>
+  这段笔记直接可以用在面试中——面试官最爱问的就是"你的场景为什么需要 Agent"。
+</div>
+
+<div class="ref">
+  <strong>必读</strong>：<br>
+  <a href="https://www.anthropic.com/engineering/building-effective-agents" target="_blank">Anthropic: Building Effective Agents</a> — 五种模式 + augmented LLM 概念<br>
+  <a href="https://openai.com/business/guides-and-resources/a-practical-guide-to-building-ai-agents/" target="_blank">OpenAI: A Practical Guide to Building AI Agents</a> — 三组件 + 护栏<br>
+  <a href="https://arxiv.org/abs/2210.03629" target="_blank">ReAct 论文</a> — Agent Loop 的理论基础（Reasoning + Acting 交替）
+</div>
+
+<div class="tip">
+  完成自测和练习后，有任何不清楚的地方直接问 Claude——这就是你的老师。<br>
+  下一课：<a href="0002-llm-api-basics.html">L0002 - LLM API 基础调用</a>——学会用 Python 调 LLM，为手写 Agent Loop 做准备。
+</div>
+
+<div class="nav">
+  <span></span>
+  <a href="0002-llm-api-basics.html">L0002: LLM API 基础调用 →</a>
+</div>
+
+<script>
+function check(el, isCorrect) {
+  const quiz = el.closest('.quiz');
+  const options = quiz.querySelectorAll('.quiz-option');
+  const feedback = quiz.querySelector('.quiz-feedback');
+  options.forEach(o => { o.style.pointerEvents = 'none'; });
+  if (isCorrect) {
+    el.classList.add('correct');
+  } else {
+    el.classList.add('wrong');
+    options.forEach(o => { if (o !== el && o.onclick.toString().includes('true')) o.classList.add('correct'); });
+  }
+  feedback.style.display = 'block';
+}
+</script>
+</body>
+</html>

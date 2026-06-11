@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L0003 - Tool Schema 与结构化输出：让 LLM 调函数</title>
+<style>
+  :root { --bg: #fafafa; --text: #1a1a1a; --accent: #2563eb; --border: #e5e7eb; --code-bg: #f3f4f6; --highlight: #fef3c7; --green-bg: #f0fdf4; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "Noto Sans SC", sans-serif; background: var(--bg); color: var(--text); line-height: 1.75; max-width: 780px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 1.75rem; margin-bottom: 0.5rem; border-bottom: 2px solid var(--accent); padding-bottom: 0.5rem; }
+  h2 { font-size: 1.35rem; margin-top: 2rem; color: var(--accent); }
+  h3 { font-size: 1.1rem; margin-top: 1.5rem; }
+  p { margin: 0.75rem 0; }
+  code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.9em; }
+  pre { background: var(--code-bg); padding: 1rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; font-size: 0.85rem; line-height: 1.6; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+  th, td { border: 1px solid var(--border); padding: 0.6rem 0.8rem; text-align: left; }
+  th { background: #f0f4ff; font-weight: 600; }
+  .quiz { background: #eff6ff; border-left: 4px solid var(--accent); padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .quiz h3 { color: var(--accent); margin-top: 0; }
+  .quiz-option { display: block; margin: 0.4rem 0; padding: 0.5rem 0.75rem; background: white; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+  .quiz-option:hover { border-color: var(--accent); background: #f0f4ff; }
+  .quiz-option.correct { background: #dcfce7; border-color: #16a34a; }
+  .quiz-option.wrong { background: #fee2e2; border-color: #dc2626; }
+  .quiz-feedback { margin-top: 0.75rem; padding: 0.75rem; border-radius: 6px; display: none; font-size: 0.9rem; }
+  .interview { background: var(--highlight); border-left: 4px solid #f59e0b; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .interview::before { content: "🎯 面试角度"; font-weight: 700; display: block; margin-bottom: 0.5rem; color: #92400e; }
+  .analogy { background: var(--green-bg); border-left: 4px solid #16a34a; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .analogy::before { content: "☕ Java 后端类比"; font-weight: 700; display: block; margin-bottom: 0.5rem; color: #166534; }
+  .key-point { background: #fef2f2; border: 1px solid #fecaca; padding: 0.75rem 1rem; border-radius: 8px; margin: 1rem 0; }
+  .key-point::before { content: "⚠️ 关键区分"; font-weight: 700; display: block; margin-bottom: 0.3rem; color: #dc2626; }
+  .nav { display: flex; justify-content: space-between; margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+  .nav a { color: var(--accent); text-decoration: none; }
+  .tip { background: #f8fafc; padding: 0.75rem 1rem; border-radius: 8px; margin: 1rem 0; font-size: 0.9rem; color: #475569; }
+  .exercise { background: var(--green-bg); border-left: 4px solid #16a34a; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .exercise::before { content: "✏️ 动手练习"; font-weight: 700; display: block; margin-bottom: 0.5rem; color: #166534; }
+  .diff { background: #f5f3ff; border-left: 4px solid #7c3aed; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .diff::before { content: "🔍 OpenAI vs Claude 差异"; font-weight: 700; display: block; margin-bottom: 0.5rem; color: #5b21b6; }
+  .ref { background: #eff6ff; border-left: 4px solid var(--accent); padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .ref::before { content: "📖 延伸阅读"; font-weight: 700; display: block; margin-bottom: 0.5rem; color: var(--accent); }
+  ul, ol { margin-left: 1.2rem; margin-bottom: 0.5rem; }
+  li { margin-bottom: 0.3rem; }
+  .diagram { background: white; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin: 1.25rem 0; text-align: center; overflow-x: auto; }
+  .diagram svg { max-width: 100%; height: auto; }
+  .diagram figcaption { font-size: 0.85rem; color: #64748b; margin-top: 0.5rem; }
+  @media print { body { max-width: 100%; } .diagram { page-break-inside: avoid; } }
+</style>
+</head>
+<body>
+
+<h1>L0003 - Tool Schema 与结构化输出</h1>
+<p><strong>让 LLM 不只"说话"，还能"调函数"：理解 Tool Call 的完整数据流</strong></p>
+
+<h2>1. 为什么需要 Tool Call？</h2>
+
+<p>上节课 LLM 只能返回文本。但真实场景中，你需要它查数据库、调 API、执行计算、读写文件。LLM 自己做不了这些——它能做的是<strong>告诉你它想调什么函数、传什么参数</strong>。你来执行，把结果喂回去。</p>
+
+<div class="analogy">
+  Tool Call ≈ <strong>RPC 调用</strong>。<br>
+  LLM 是客户端（发出调用请求），你的代码是服务端（真正执行）。<br>
+  LLM 不直接执行——它只输出 <code>{"function": "get_weather", "args": {"city": "北京"}}</code>。<br>
+  就像前端调后端 API：前端不连数据库，它只发 HTTP 请求。
+</div>
+
+<p>完整数据流：</p>
+<figure class="diagram">
+<svg viewBox="0 0 540 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Tool Call 数据流时序图">
+  <defs>
+    <marker id="tArrB" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#2563eb"/>
+    </marker>
+    <marker id="tArrG" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#16a34a"/>
+    </marker>
+  </defs>
+
+  <!-- 角色头 -->
+  <rect x="50" y="20" width="140" height="40" rx="8" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+  <text x="120" y="45" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">你的代码</text>
+
+  <rect x="330" y="20" width="140" height="40" rx="8" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+  <text x="400" y="45" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">LLM</text>
+
+  <!-- 生命线 -->
+  <line x1="120" y1="60" x2="120" y2="300" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,4"/>
+  <line x1="400" y1="60" x2="400" y2="300" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,4"/>
+
+  <!-- 消息 1：代码 → LLM（请求，蓝）-->
+  <line x1="120" y1="100" x2="396" y2="100" stroke="#2563eb" stroke-width="2.2" marker-end="url(#tArrB)"/>
+  <text x="258" y="92" text-anchor="middle" font-size="11" fill="#1e3a8a">1. messages + tools（对话历史 + 工具列表）</text>
+
+  <!-- 消息 2：LLM → 代码（返回，绿）-->
+  <line x1="400" y1="155" x2="124" y2="155" stroke="#16a34a" stroke-width="2.2" marker-end="url(#tArrG)"/>
+  <text x="262" y="147" text-anchor="middle" font-size="11" fill="#166534">2. tool_call：get_weather(北京)</text>
+
+  <!-- 自处理标注 -->
+  <rect x="60" y="185" width="120" height="24" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="120" y="201" text-anchor="middle" font-size="10" fill="#475569">执行函数，拿结果</text>
+
+  <!-- 消息 3：代码 → LLM（喂结果，蓝）-->
+  <line x1="120" y1="230" x2="396" y2="230" stroke="#2563eb" stroke-width="2.2" marker-end="url(#tArrB)"/>
+  <text x="258" y="222" text-anchor="middle" font-size="11" fill="#1e3a8a">3. tool_result（把结果喂回去）</text>
+
+  <!-- 消息 4：LLM → 代码（最终回答，绿）-->
+  <line x1="400" y1="280" x2="124" y2="280" stroke="#16a34a" stroke-width="2.2" marker-end="url(#tArrG)"/>
+  <text x="262" y="272" text-anchor="middle" font-size="11" fill="#166534">4. 最终文本回答</text>
+</svg>
+<figcaption>Tool Call 数据流：请求蓝、返回绿，四轮完成一次工具调用</figcaption>
+</figure>
+
+<h2>2. Tool Schema：告诉 LLM 有什么工具</h2>
+
+<p>Tool Schema 是一个 JSON 描述：工具叫什么、做什么、参数什么类型。底层就是 <a href="https://json-schema.org/" target="_blank">JSON Schema</a>。</p>
+
+<h3>OpenAI 格式</h3>
+<pre>
+tools = [
+    {
+        "type": "function",              # 固定值
+        "name": "get_weather",           # 函数名
+        "description": "查询指定城市的当前天气",  # 告诉 LLM 什么时候该用
+        "parameters": {                  # ← 注意：叫 parameters
+            "type": "object",
+            "properties": {
+                "city": {
+                    "type": "string",
+                    "description": "城市名，如'北京'"
+                },
+                "unit": {
+                    "type": "string",
+                    "enum": ["celsius", "fahrenheit"]
+                }
+            },
+            "required": ["city"]
+        }
+    }
+]
+</pre>
+
+<h3>Anthropic 格式</h3>
+<pre>
+tools = [
+    {
+        "name": "get_weather",
+        "description": "查询指定城市的当前天气",
+        "input_schema": {                # ← 注意：叫 input_schema（不是 parameters）
+            "type": "object",
+            "properties": {
+                "city": {
+                    "type": "string",
+                    "description": "城市名，如'北京'"
+                },
+                "unit": {
+                    "type": "string",
+                    "enum": ["celsius", "fahrenheit"]
+                }
+            },
+            "required": ["city"]
+        }
+    }
+]
+</pre>
+
+<div class="analogy">
+  Tool Schema ≈ <strong>接口契约</strong>（像 Swagger/OpenAPI spec）。<br>
+  <code>name</code> ≈ 接口路径，<code>description</code> ≈ 接口描述，<code>parameters/input_schema</code> ≈ 请求参数 schema。<br>
+  没有这个契约，LLM 不知道能调什么——就像没有 Swagger 文档，前端不知道有哪些 API。
+</div>
+
+<h2>3. 发送请求 + 解析 Tool Call 响应</h2>
+
+<h3>OpenAI</h3>
+<pre>
+from openai import OpenAI
+import json
+
+client = OpenAI()
+response = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "北京今天天气怎么样？"}],
+    tools=tools,
+)
+
+message = response.choices[0].message
+
+if message.tool_calls:
+    for tc in message.tool_calls:
+        print(f"函数名: {tc.function.name}")
+        print(f"参数: {json.loads(tc.function.arguments)}")  # ← arguments 是字符串！
+        print(f"调用 ID: {tc.id}")
+</pre>
+
+<h3>Anthropic</h3>
+<pre>
+from anthropic import Anthropic
+
+client = Anthropic()
+response = client.messages.create(
+    model="claude-sonnet-4-5-20250514",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": "北京今天天气怎么样？"}],
+    tools=tools,
+)
+
+if response.stop_reason == "tool_use":
+    for block in response.content:
+        if block.type == "tool_use":
+            print(f"函数名: {block.name}")
+            print(f"参数: {block.input}")  # ← 已经是 dict，不需要 json.loads
+            print(f"调用 ID: {block.id}")
+</pre>
+
+<h2>4. 三大坑：OpenAI vs Anthropic Tool Call 差异</h2>
+
+<div class="diff">
+<table>
+  <tr><th>差异点</th><th>OpenAI</th><th>Anthropic</th></tr>
+  <tr><td>Schema 字段名</td><td><code>parameters</code></td><td><code>input_schema</code></td></tr>
+  <tr><td>需要 type 字段？</td><td>是：<code>"type": "function"</code></td><td>否</td></tr>
+  <tr><td><strong>参数数据类型</strong></td><td><code>arguments</code> 是 <strong>JSON 字符串</strong>（需 <code>json.loads</code>）</td><td><code>input</code> 是 <strong>已解析 dict</strong></td></tr>
+  <tr><td>响应位置</td><td><code>.choices[0].message.tool_calls[]</code></td><td><code>.content[]</code> 中 type=<code>"tool_use"</code> 的 block</td></tr>
+  <tr><td>停止原因</td><td><code>finish_reason == "tool_calls"</code></td><td><code>stop_reason == "tool_use"</code></td></tr>
+  <tr><td>结果回传 role</td><td><code>role: "tool"</code></td><td><code>role: "user"</code> + <code>tool_result</code> block</td></tr>
+</table>
+</div>
+
+<div class="key-point">
+  <strong>最常踩的坑：OpenAI arguments 是字符串，Anthropic input 是 dict。</strong><br>
+  OpenAI：<code>args = json.loads(tc.function.arguments)</code><br>
+  Anthropic：<code>args = block.input</code>（直接用）<br>
+  忘了 <code>json.loads</code> 会导致参数解析失败——Tool Call 最常见的 Bug。
+</div>
+
+<h2>5. 回传 Tool 执行结果</h2>
+
+<h3>OpenAI</h3>
+<pre>
+# 1. 追加 LLM 的 tool_call 决策到 messages
+messages.append(message)
+
+# 2. 追加工具执行结果
+messages.append({
+    "role": "tool",                          # role 是 "tool"
+    "tool_call_id": tc.id,                   # 匹配调用 ID
+    "content": "北京：晴，25°C"
+})
+
+# 3. 再调 LLM，让它根据结果生成回答
+response2 = client.chat.completions.create(
+    model="gpt-4o-mini", messages=messages, tools=tools,
+)
+print(response2.choices[0].message.content)
+</pre>
+
+<h3>Anthropic</h3>
+<pre>
+# 1. 追加 LLM 的 tool_use 响应
+messages.append({"role": "assistant", "content": response.content})
+
+# 2. 追加工具执行结果（注意 role 是 "user"！）
+messages.append({
+    "role": "user",                          # role 是 "user"！不是 "tool"
+    "content": [{
+        "type": "tool_result",
+        "tool_use_id": block.id,             # 匹配调用 ID
+        "content": "北京：晴，25°C"
+    }]
+})
+
+# 3. 再调 LLM
+response2 = client.messages.create(
+    model="claude-sonnet-4-5-20250514",
+    max_tokens=1024, messages=messages, tools=tools,
+)
+print(response2.content[0].text)
+</pre>
+
+<div class="interview">
+  "Tool Call 的完整流程是什么？"<br><br>
+  回答要点：<br>
+  (1) 定义 Tool Schema（函数名、描述、参数类型）——相当于接口契约<br>
+  (2) 发送 messages + tools 给 LLM<br>
+  (3) LLM 返回 tool_call（函数名 + 参数）——<strong>LLM 不执行，只表达意图</strong><br>
+  (4) 你的代码执行函数，把结果追加回 messages<br>
+  (5) 再调 LLM，让它根据结果生成最终回答<br>
+  (6) Agent Loop 就是反复做 (2)-(5)
+</div>
+
+<h2>6. 自测题</h2>
+
+<div class="quiz" id="q1">
+  <h3>题目 1：LLM 能直接执行函数吗？</h3>
+  <label class="quiz-option" onclick="check(this, false)">A. 能，LLM 内置代码执行能力</label>
+  <label class="quiz-option" onclick="check(this, true)">B. 不能，LLM 只输出"想调什么函数+参数"，代码负责执行</label>
+  <label class="quiz-option" onclick="check(this, false)">C. 能，但只有 OpenAI 可以</label>
+  <label class="quiz-option" onclick="check(this, false)">D. 能，但需要特殊插件</label>
+  <div class="quiz-feedback" id="q1f" style="background:#dcfce7;color:#166534;">
+    正确。LLM 只输出结构化的"调用意图"，你的代码负责真正执行。
+  </div>
+</div>
+
+<div class="quiz" id="q2">
+  <h3>题目 2：OpenAI 的 tool_call 响应中，arguments 是什么类型？</h3>
+  <label class="quiz-option" onclick="check(this, false)">A. dict（已解析对象）</label>
+  <label class="quiz-option" onclick="check(this, true)">B. str（JSON 字符串，需要 json.loads）</label>
+  <label class="quiz-option" onclick="check(this, false)">C. list</label>
+  <label class="quiz-option" onclick="check(this, false)">D. bytes</label>
+  <div class="quiz-feedback" id="q2f" style="background:#dcfce7;color:#166534;">
+    正确。OpenAI arguments 是 JSON 字符串，必须 <code>json.loads()</code>。Anthropic 的 input 则是已解析 dict。
+  </div>
+</div>
+
+<div class="quiz" id="q3">
+  <h3>题目 3：Anthropic 回传 tool_result 时，消息的 role 应该是什么？</h3>
+  <label class="quiz-option" onclick="check(this, false)">A. "tool"</label>
+  <label class="quiz-option" onclick="check(this, true)">B. "user"</label>
+  <label class="quiz-option" onclick="check(this, false)">C. "assistant"</label>
+  <label class="quiz-option" onclick="check(this, false)">D. "system"</label>
+  <div class="quiz-feedback" id="q3f" style="background:#dcfce7;color:#166534;">
+    正确。Anthropic 的 tool_result 放在 role="user" 消息内。OpenAI 用独立的 role="tool"。
+  </div>
+</div>
+
+<h2>7. 动手练习</h2>
+
+<div class="exercise">
+  <strong>练习：完成一次完整的 Tool Call 流程</strong><br><br>
+  步骤：<br>
+  1. 定义 <code>calculator</code> 工具：接收 <code>expression</code>（字符串），返回计算结果<br>
+  2. 发送 "123 * 456 等于多少？" + tools 参数<br>
+  3. 解析 LLM 返回的 tool_call，提取函数名和参数<br>
+  4. 执行计算（用 <code>eval()</code> 即可）<br>
+  5. 把结果回传给 LLM，拿到最终回答<br><br>
+  预期产出：<code>tool_call_demo.py</code>，能看到 LLM 调 calculator 并返回正确答案。<br>
+  <strong>选做</strong>：分别用 OpenAI 和 Anthropic SDK 各实现一遍，体会 API 差异。
+</div>
+
+<div class="ref">
+  <a href="https://platform.openai.com/docs/guides/function-calling" target="_blank">OpenAI: Function Calling Guide</a><br>
+  <a href="https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/overview" target="_blank">Anthropic: Tool Use Overview</a><br>
+  <a href="https://ai.google.dev/gemini-api/docs/function-calling" target="_blank">Google Gemini: Function Calling</a>
+</div>
+
+<div class="tip">
+  完成练习后，有任何不清楚的地方直接问 Claude——这就是你的老师。<br>
+  下一课：<a href="0004-minimal-agent-loop.html">L0004 - 手写最小 Agent Loop</a>——把 L0002 的 API 调用和本课的 Tool Call 串成循环，写出第一个 Agent。
+</div>
+
+<div class="nav">
+  <a href="0002-llm-api-basics.html">← L0002: LLM API 基础调用</a>
+  <a href="0004-minimal-agent-loop.html">L0004: 手写最小 Agent Loop →</a>
+</div>
+
+<script>
+function check(el, isCorrect) {
+  const quiz = el.closest('.quiz');
+  const options = quiz.querySelectorAll('.quiz-option');
+  const feedback = quiz.querySelector('.quiz-feedback');
+  options.forEach(o => { o.style.pointerEvents = 'none'; });
+  if (isCorrect) {
+    el.classList.add('correct');
+  } else {
+    el.classList.add('wrong');
+    options.forEach(o => { if (o !== el && o.onclick.toString().includes('true')) o.classList.add('correct'); });
+  }
+  feedback.style.display = 'block';
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM API 速查表</title>
+<style>
+  :root { --bg: #fafafa; --text: #1a1a1a; --accent: #2563eb; --border: #e5e7eb; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "Noto Sans SC", sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; max-width: 780px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 1.5rem; border-bottom: 2px solid var(--accent); padding-bottom: 0.5rem; margin-bottom: 1.5rem; }
+  h2 { font-size: 1.2rem; color: var(--accent); margin-top: 1.5rem; margin-bottom: 0.5rem; }
+  pre { background: #f3f4f6; padding: 0.75rem; border-radius: 6px; font-size: 0.82rem; line-height: 1.5; overflow-x: auto; margin: 0.5rem 0; }
+  table { width: 100%; border-collapse: collapse; margin: 0.75rem 0; font-size: 0.88rem; }
+  th { background: #f0f4ff; text-align: left; padding: 0.5rem 0.75rem; border-bottom: 2px solid var(--border); }
+  td { padding: 0.4rem 0.75rem; border-bottom: 1px solid var(--border); }
+  code { background: #f3f4f6; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.9em; }
+  @media print { body { max-width: 100%; } }
+</style>
+</head>
+<body>
+
+<h1>LLM API 速查表</h1>
+
+<h2>Messages 角色对照</h2>
+<table>
+  <tr><th>角色</th><th>作用</th><th>OpenAI</th><th>Anthropic</th></tr>
+  <tr><td><code>system</code></td><td>行为规则/人设</td><td>在 messages 内</td><td>独立 <code>system</code> 参数</td></tr>
+  <tr><td><code>user</code></td><td>用户输入</td><td>messages 内</td><td>messages 内</td></tr>
+  <tr><td><code>assistant</code></td><td>AI 回复</td><td>messages 内</td><td>messages 内</td></tr>
+  <tr><td><code>tool</code></td><td>工具返回值</td><td>messages 内</td><td>messages 内（content 为 blocks）</td></tr>
+</table>
+
+<h2>OpenAI SDK 速查</h2>
+<pre>
+from openai import OpenAI
+client = OpenAI()  # 读 OPENAI_API_KEY
+
+response = client.chat.completions.create(
+    model="gpt-4o-mini",            # 必填
+    messages=[...],                   # 必填
+    temperature=0.7,                  # 可选，默认 1.0
+    max_completion_tokens=1024,       # 可选（推荐，替代 max_tokens）
+    top_p=1.0,                        # 可选
+)
+
+# 响应访问
+response.choices[0].message.content  # str
+response.choices[0].finish_reason    # "stop" | "length" | "tool_calls"
+response.usage.prompt_tokens         # int
+response.usage.completion_tokens     # int
+</pre>
+
+<h2>Anthropic SDK 速查</h2>
+<pre>
+from anthropic import Anthropic
+client = Anthropic()  # 读 ANTHROPIC_API_KEY
+
+response = client.messages.create(
+    model="claude-sonnet-4-5-20250514",  # 必填
+    max_tokens=1024,                       # 必填！
+    messages=[...],                        # 必填（第一条必须是 user）
+    system="系统提示词",                    # 可选，独立参数
+    temperature=0.7,                       # 可选，默认 1.0
+    top_p=1.0,                             # 可选
+    top_k=40,                              # 可选（Anthropic 专用）
+)
+
+# 响应访问
+response.content[0].text             # str（注意是 content 数组）
+response.stop_reason                 # "end_turn" | "max_tokens"
+response.usage.input_tokens          # int
+response.usage.output_tokens         # int
+</pre>
+
+<h2>参数速查</h2>
+<table>
+  <tr><th>参数</th><th>范围</th><th>推荐值</th><th>说明</th></tr>
+  <tr><td><code>temperature</code></td><td>0 - 2</td><td>0（确定性）/ 0.7（创意）</td><td>越高越随机</td></tr>
+  <tr><td><code>max_tokens</code></td><td>1 - 模型上限</td><td>按需</td><td>Anthropic 必填；OpenAI 可选</td></tr>
+  <tr><td><code>top_p</code></td><td>0 - 1</td><td>1.0</td><td>核采样，一般和 temperature 二选一调</td></tr>
+  <tr><td><code>top_k</code></td><td>1 - ∞</td><td>40</td><td>仅 Anthropic，限制候选 token 数</td></tr>
+</table>
+
+<h2>Environment Variables</h2>
+<table>
+  <tr><th>SDK</th><th>环境变量</th></tr>
+  <tr><td>OpenAI</td><td><code>OPENAI_API_KEY</code></td></tr>
+  <tr><td>Anthropic</td><td><code>ANTHROPIC_API_KEY</code></td></tr>
+  <tr><td>OpenAI (自定义 base)</td><td><code>OPENAI_BASE_URL</code></td></tr>
+  <tr><td>Anthropic (自定义 base)</td><td><code>ANTHROPIC_BASE_URL</code></td></tr>
+</table>
+
+</body>
+</html>

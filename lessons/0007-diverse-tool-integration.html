@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L0007 - 多样化工具接入：让 Agent 走出对话</title>
+<style>
+  :root { --bg: #fafafa; --text: #1a1a1a; --accent: #2563eb; --border: #e5e7eb; --code-bg: #f3f4f6; --highlight: #fef3c7; --green-bg: #f0fdf4; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "Noto Sans SC", sans-serif; background: var(--bg); color: var(--text); line-height: 1.75; max-width: 780px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 1.75rem; margin-bottom: 0.5rem; border-bottom: 2px solid var(--accent); padding-bottom: 0.5rem; }
+  h2 { font-size: 1.35rem; margin-top: 2rem; color: var(--accent); }
+  h3 { font-size: 1.1rem; margin-top: 1.5rem; }
+  p { margin: 0.75rem 0; }
+  code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.9em; }
+  pre { background: var(--code-bg); padding: 1rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; font-size: 0.85rem; line-height: 1.6; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+  th, td { border: 1px solid var(--border); padding: 0.6rem 0.8rem; text-align: left; }
+  th { background: #f0f4ff; font-weight: 600; }
+  .quiz { background: #eff6ff; border-left: 4px solid var(--accent); padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .quiz h3 { color: var(--accent); margin-top: 0; }
+  .quiz-option { display: block; margin: 0.4rem 0; padding: 0.5rem 0.75rem; background: white; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+  .quiz-option:hover { border-color: var(--accent); background: #f0f4ff; }
+  .quiz-option.correct { background: #dcfce7; border-color: #16a34a; }
+  .quiz-option.wrong { background: #fee2e2; border-color: #dc2626; }
+  .quiz-feedback { margin-top: 0.75rem; padding: 0.75rem; border-radius: 6px; display: none; font-size: 0.9rem; }
+  .interview { background: var(--highlight); border-left: 4px solid #f59e0b; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .interview::before { content: "🎯 面试角度"; font-weight: 700; display: block; margin-bottom: 0.5rem; color: #92400e; }
+  .analogy { background: var(--green-bg); border-left: 4px solid #16a34a; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .analogy::before { content: "☕ Java 后端类比"; font-weight: 700; display: block; margin-bottom: 0.5rem; color: #166534; }
+  .key-point { background: #fef2f2; border: 1px solid #fecaca; padding: 0.75rem 1rem; border-radius: 8px; margin: 1rem 0; }
+  .key-point::before { content: "⚠️ 关键区分"; font-weight: 700; display: block; margin-bottom: 0.3rem; color: #dc2626; }
+  .nav { display: flex; justify-content: space-between; margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+  .nav a { color: var(--accent); text-decoration: none; }
+  .tip { background: #f8fafc; padding: 0.75rem 1rem; border-radius: 8px; margin: 1rem 0; font-size: 0.9rem; color: #475569; }
+  .exercise { background: var(--green-bg); border-left: 4px solid #16a34a; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .exercise::before { content: "✏️ 动手练习"; font-weight: 700; display: block; margin-bottom: 0.5rem; color: #166534; }
+  .ref { background: #eff6ff; border-left: 4px solid var(--accent); padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .ref::before { content: "📖 延伸阅读"; font-weight: 700; display: block; margin-bottom: 0.5rem; color: var(--accent); }
+  .phase { background: #fef9c3; border: 2px solid #eab308; padding: 0.5rem 1rem; margin: 1.5rem 0; border-radius: 8px; font-size: 0.9rem; }
+  .phase::before { content: "📍 Phase 2 · Stage 2"; font-weight: 700; color: #854d0e; }
+  ul, ol { margin-left: 1.2rem; margin-bottom: 0.5rem; }
+  li { margin-bottom: 0.3rem; }
+  @media print { body { max-width: 100%; } }
+</style>
+</head>
+<body>
+
+<h1>L0007 - 多样化工具接入</h1>
+<p><strong>搜索引擎、数据库、文件系统、代码执行——让 Agent 走出对话，接入真实世界</strong></p>
+
+<div class="phase">L2.2 · 多样化工具接入</div>
+
+<h2>1. 回顾：Agent = LLM + Tools + Loop</h2>
+
+<p>L0004 的 Agent 只有两个简单工具：calculator 和 search（假数据）。真实 Agent 需要接入各种外部系统。本课讲四类最常用的工具。</p>
+
+<table>
+  <tr><th>工具类型</th><th>解决什么</th><th>类比</th></tr>
+  <tr><td>搜索引擎</td><td>获取实时信息</td><td>调用百度/Google API</td></tr>
+  <tr><td>数据库查询</td><td>读取结构化数据</td><td>MyBatis / JPA 查询</td></tr>
+  <tr><td>文件系统</td><td>读写本地/远程文件</td><td>File I/O 操作</td></tr>
+  <tr><td>代码执行</td><td>运行计算/脚本</td><td>Runtime.exec() / Docker</td></tr>
+</table>
+
+<div class="analogy">
+  Phase 1 的 Agent ≈ 只有内存运算的微服务。<br>
+  本课给 Agent 加上外部依赖：HTTP Client（搜索）、DataSource（数据库）、FileSystem（文件）、Sandbox（代码执行）。<br>
+  每加一类工具，Agent 的能力边界就扩大一圈。
+</div>
+
+<h2>2. 搜索引擎工具</h2>
+
+<p>LLM 知识有截止日期，搜索工具让 Agent 获取实时信息。</p>
+
+<h3>Tavily API（推荐入门）</h3>
+
+<pre>
+# pip install tavily-python
+import os
+from tavily import TavilyClient
+
+tavily = TavilyClient(api_key=os.environ["TAVILY_API_KEY"])
+
+def web_search(query: str) -> str:
+    """搜索互联网获取实时信息"""
+    results = tavily.search(query, max_results=3)
+    output = []
+    for r in results["results"]:
+        output.append(f"标题: {r['title']}\n来源: {r['url']}\n摘要: {r['content']}")
+    return "\n\n".join(output) if output else "未找到相关结果"
+
+print(web_search("2024 年诺贝尔物理学奖"))
+</pre>
+
+<h3>Tool Schema 定义</h3>
+
+<pre>
+search_tool = {
+    "name": "web_search",
+    "description": "搜索互联网获取最新信息。适合查询时事、新闻、最新数据。",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "搜索关键词"
+            }
+        },
+        "required": ["query"]
+    }
+}
+</pre>
+
+<div class="key-point">
+  <strong>description 是给 LLM 看的"使用说明书"。</strong><br>
+  写得越清楚，LLM 越知道什么时候该用这个工具。例如加上"适合查询时事、新闻、最新数据"，LLM 就不会在问"1+1=?"时调搜索。<br>
+  类比：接口文档写得越清楚，前端越不容易调错 API。
+</div>
+
+<h2>3. 数据库查询工具（Text-to-SQL）</h2>
+
+<p>让 Agent 把自然语言问题翻译成 SQL 查询。核心思路：把表结构信息放进 prompt，让 LLM 生成 SQL。</p>
+
+<pre>
+import sqlite3
+
+# 数据库 schema 信息（给 LLM 看）
+DB_SCHEMA = """
+表 orders:
+  - id INTEGER PRIMARY KEY
+  - customer_name TEXT
+  - product TEXT
+  - quantity INTEGER
+  - price REAL
+  - order_date TEXT
+"""
+
+def text_to_sql(question: str) -> str:
+    """自然语言转 SQL 并执行"""
+    prompt = f"""根据以下数据库 schema，把问题转成 SQL 查询。
+只返回 SQL 语句，不要其他内容。
+
+Schema:
+{DB_SCHEMA}
+
+问题: {question}
+
+SQL:"""
+
+    from openai import OpenAI
+    client = OpenAI()
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0,
+    )
+    sql = response.choices[0].message.content.strip()
+
+    # 安全检查：只允许 SELECT
+    if not sql.upper().startswith("SELECT"):
+        return f"安全限制：只允许 SELECT 查询。生成的 SQL: {sql}"
+
+    try:
+        conn = sqlite3.connect("orders.db")
+        cursor = conn.cursor()
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+        columns = [desc[0] for desc in cursor.description]
+        conn.close()
+        return f"SQL: {sql}\n列: {columns}\n结果: {rows}"
+    except Exception as e:
+        return f"SQL 执行错误: {e}\nSQL: {sql}"
+</pre>
+
+<div class="key-point">
+  <strong>Text-to-SQL 安全要点：</strong><br>
+  (1) <strong>只允许 SELECT</strong>，禁止 INSERT/UPDATE/DELETE/DROP<br>
+  (2) 用只读数据库连接（read-only user）<br>
+  (3) 限制返回行数（加 LIMIT）<br>
+  (4) 生产环境考虑用参数化查询防 SQL 注入<br>
+  类比：和 MyBatis 的 ${} vs #{} 是同一个问题——永远不要直接拼接用户输入。
+</div>
+
+<h2>4. 文件系统工具</h2>
+
+<pre>
+import os
+
+def read_file(path: str) -> str:
+    """读取文件内容"""
+    base_dir = os.path.abspath("./workspace")
+    full_path = os.path.abspath(os.path.join(base_dir, path))
+    if not full_path.startswith(base_dir):
+        return f"安全限制：不允许访问 {path}（路径穿越）"
+
+    try:
+        with open(full_path, encoding="utf-8") as f:
+            return f.read()[:10000]
+    except FileNotFoundError:
+        return f"文件不存在: {path}"
+    except Exception as e:
+        return f"读取失败: {e}"
+
+def list_files(directory: str = ".") -> str:
+    """列出目录下的文件"""
+    base_dir = os.path.abspath("./workspace")
+    target = os.path.abspath(os.path.join(base_dir, directory))
+    if not target.startswith(base_dir):
+        return "安全限制：不允许访问该目录"
+
+    try:
+        entries = os.listdir(target)
+        return "\n".join(entries) if entries else "目录为空"
+    except Exception as e:
+        return f"列出失败: {e}"
+</pre>
+
+<div class="analogy">
+  文件系统工具 ≈ <strong>Controller 层的文件上传下载接口</strong>。<br>
+  核心安全问题是<strong>路径穿越</strong>（Path Traversal）：<code>../../etc/passwd</code>。<br>
+  和 Web 安全的目录遍历漏洞完全一样——normalize 后检查前缀。
+</div>
+
+<h2>5. 代码执行工具</h2>
+
+<pre>
+import subprocess
+import tempfile
+
+def execute_python(code: str) -> str:
+    """在沙箱中执行 Python 代码"""
+    blocked = ["import os", "import subprocess", "import sys",
+               "open(", "exec(", "eval(", "__import__"]
+    for keyword in blocked:
+        if keyword in code:
+            return f"安全限制：代码包含禁止的操作 '{keyword}'"
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8") as f:
+        f.write(code)
+        tmp_path = f.name
+
+    try:
+        result = subprocess.run(
+            ["python", tmp_path],
+            capture_output=True, text=True, timeout=10,
+        )
+        output = result.stdout if result.returncode == 0 else f"错误:\n{result.stderr}"
+        return output[:5000]
+    except subprocess.TimeoutExpired:
+        return "执行超时（10秒限制）"
+    finally:
+        os.unlink(tmp_path)
+</pre>
+
+<div class="key-point">
+  <strong>代码执行是风险最高的工具。</strong><br>
+  上面的黑名单检查只是演示。生产环境必须用<strong>Docker 容器沙箱</strong>：<br>
+  - 网络隔离（无外网访问）<br>
+  - 文件系统只读挂载<br>
+  - 资源限制（CPU/内存/时间）<br>
+  - 非 root 用户运行<br>
+  参考 OpenAI Codex / Claude Code 的沙箱设计。
+</div>
+
+<h2>6. 工具设计四原则</h2>
+
+<table>
+  <tr><th>原则</th><th>为什么</th><th>反例</th></tr>
+  <tr><td>单一职责</td><td>一个工具做一件事，LLM 更容易选对</td><td>"万能工具"做搜索+计算+写文件</td></tr>
+  <tr><td>Schema 清晰</td><td>参数名和描述要自解释</td><td>参数名叫 <code>q</code> 而非 <code>query</code></td></tr>
+  <tr><td>错误可追溯</td><td>返回具体错误信息，不吞异常</td><td>catch 后返回空字符串</td></tr>
+  <tr><td>最小权限</td><td>只开放必要权限</td><td>文件工具能读写整个 / 目录</td></tr>
+</table>
+
+<pre>
+# 反面教材
+bad_tool = {
+    "name": "do_stuff",
+    "description": "做各种事情",  # LLM 不知道什么时候该用
+}
+
+# 正面教材
+good_tool = {
+    "name": "web_search",
+    "description": "搜索互联网获取最新信息。当用户问时事、新闻、最新数据时使用。不用于数学计算。",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "query": {"type": "string", "description": "搜索关键词，1-5 个词最佳"}
+        },
+        "required": ["query"]
+    }
+}
+</pre>
+
+<div class="interview">
+  "设计 Agent 工具时有哪些原则？怎么防止工具被滥用？"<br><br>
+  回答要点：<br>
+  (1) <strong>单一职责</strong>——一个工具做一件事，description 写清适用场景<br>
+  (2) <strong>Schema 清晰</strong>——参数名自解释，type 和 required 明确<br>
+  (3) <strong>最小权限</strong>——只读连接、路径限制、沙箱隔离<br>
+  (4) <strong>错误可追溯</strong>——返回具体错误信息给 LLM，不吞异常<br>
+  (5) 代码执行必须沙箱化（Docker），SQL 工具只允许 SELECT
+</div>
+
+<h2>7. 统一工具注册</h2>
+
+<pre>
+tools = [search_tool, sql_tool, read_file_tool, list_files_tool, execute_python_tool]
+
+TOOL_MAP = {
+    "web_search": lambda args: web_search(args["query"]),
+    "text_to_sql": lambda args: text_to_sql(args["question"]),
+    "read_file": lambda args: read_file(args["path"]),
+    "list_files": lambda args: list_files(args.get("directory", ".")),
+    "execute_python": lambda args: execute_python(args["code"]),
+}
+
+def execute_tool(name: str, args: dict) -> str:
+    handler = TOOL_MAP.get(name)
+    if not handler:
+        return f"未知工具: {name}"
+    try:
+        return handler(args)
+    except Exception as e:
+        return f"工具 '{name}' 执行失败: {type(e).__name__}: {e}"
+</pre>
+
+<div class="analogy">
+  工具注册 ≈ <strong>Spring 的 @RequestMapping 路由表</strong>。<br>
+  <code>TOOL_MAP</code> 是 DispatcherServlet（路由到 handler），LLM 是前端（发请求），handler 是 Controller 方法。
+</div>
+
+<h2>8. 自测题</h2>
+
+<div class="quiz" id="q1">
+  <h3>题目 1：Tool Schema 的 description 最重要的作用是什么？</h3>
+  <label class="quiz-option" onclick="check(this, false)">A. 给开发者看，方便维护</label>
+  <label class="quiz-option" onclick="check(this, true)">B. 给 LLM 看，帮它判断什么时候该用这个工具</label>
+  <label class="quiz-option" onclick="check(this, false)">C. 自动生成 API 文档</label>
+  <label class="quiz-option" onclick="check(this, false)">D. 限制工具的调用次数</label>
+  <div class="quiz-feedback" id="q1f" style="background:#dcfce7;color:#166534;">
+    正确。description 是 LLM 选择工具的主要依据。写得越精准，LLM 越不容易调错。
+  </div>
+</div>
+
+<div class="quiz" id="q2">
+  <h3>题目 2：Text-to-SQL 工具最重要的安全措施是什么？</h3>
+  <label class="quiz-option" onclick="check(this, false)">A. 限制查询结果行数</label>
+  <label class="quiz-option" onclick="check(this, false)">B. 加 LIMIT 子句</label>
+  <label class="quiz-option" onclick="check(this, true)">C. 只允许 SELECT，用只读连接</label>
+  <label class="quiz-option" onclick="check(this, false)">D. 对 SQL 做加密</label>
+  <div class="quiz-feedback" id="q2f" style="background:#dcfce7;color:#166534;">
+    正确。最核心是权限控制——只允许 SELECT + 只读连接。LLM 生成的 SQL 不可信，必须在数据库层面做权限兜底。
+  </div>
+</div>
+
+<div class="quiz" id="q3">
+  <h3>题目 3：为什么代码执行工具必须用沙箱？</h3>
+  <label class="quiz-option" onclick="check(this, false)">A. 为了提高执行速度</label>
+  <label class="quiz-option" onclick="check(this, true)">B. LLM 生成的代码不可信，可能在宿主机上执行恶意操作</label>
+  <label class="quiz-option" onclick="check(this, false)">C. 沙箱能减少 token 消耗</label>
+  <label class="quiz-option" onclick="check(this, false)">D. 只是为了方便调试</label>
+  <div class="quiz-feedback" id="q3f" style="background:#dcfce7;color:#166534;">
+    正确。LLM 可能生成恶意代码。黑名单不够——生产环境必须用 Docker 隔离：网络隔离、文件系统只读、资源限制、非 root 运行。
+  </div>
+</div>
+
+<h2>9. 动手练习</h2>
+
+<div class="exercise">
+  <strong>练习：给 Agent 加上搜索和数据库工具</strong><br><br>
+  步骤：<br>
+  1. 注册 <a href="https://tavily.com/" target="_blank">Tavily</a> 获取免费 API Key<br>
+  2. 创建 SQLite 数据库 <code>products.db</code>，建表并插入测试数据<br>
+  3. 把 <code>web_search</code> 和 <code>text_to_sql</code> 注册到 L0004 的 Agent Loop<br>
+  4. 测试问题：<br>
+  &nbsp;&nbsp;- "今天北京天气怎么样？"（应调搜索）<br>
+  &nbsp;&nbsp;- "最贵的三个产品是什么？"（应调 SQL）<br>
+  &nbsp;&nbsp;- "搜索最新的 Python 版本，然后查数据库里有没有 Python 相关产品"（应调两次不同工具）<br><br>
+  预期产出：<code>agent_with_tools.py</code>
+</div>
+
+<div class="ref">
+  <a href="https://tavily.com/" target="_blank">Tavily Search API</a><br>
+  <a href="https://serpapi.com/" target="_blank">SerpAPI（Google 搜索 API）</a><br>
+  <a href="https://ai.google.dev/gemini-api/docs/code-execution" target="_blank">Gemini Code Execution</a><br>
+  <a href="https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/overview" target="_blank">Anthropic: Tool Use Overview</a>
+</div>
+
+<div class="tip">
+  完成练习后，有任何不清楚的地方直接问 Claude——这就是你的老师。<br>
+  下一课：<a href="0008-memory-system.html">L0008 - 记忆系统设计</a>——短期记忆、会话记忆、长期记忆，让 Agent 记住你是谁。
+</div>
+
+<div class="nav">
+  <a href="0006-rag-pipeline.html">← L0006: RAG Pipeline 全流程</a>
+  <a href="0008-memory-system.html">L0008: 记忆系统设计 →</a>
+</div>
+
+<script>
+function check(el, isCorrect) {
+  const quiz = el.closest('.quiz');
+  const options = quiz.querySelectorAll('.quiz-option');
+  const feedback = quiz.querySelector('.quiz-feedback');
+  options.forEach(o => { o.style.pointerEvents = 'none'; });
+  if (isCorrect) {
+    el.classList.add('correct');
+  } else {
+    el.classList.add('wrong');
+    options.forEach(o => { if (o !== el && o.onclick.toString().includes('true')) o.classList.add('correct'); });
+  }
+  feedback.style.display = 'block';
+}
+</script>
+</body>
+</html>

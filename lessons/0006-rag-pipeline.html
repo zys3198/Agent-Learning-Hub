@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L0006 - RAG Pipeline 全流程：让 Agent 拥有知识库</title>
+<style>
+  :root { --bg: #fafafa; --text: #1a1a1a; --accent: #2563eb; --border: #e5e7eb; --code-bg: #f3f4f6; --highlight: #fef3c7; --green-bg: #f0fdf4; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "Noto Sans SC", sans-serif; background: var(--bg); color: var(--text); line-height: 1.75; max-width: 780px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 1.75rem; margin-bottom: 0.5rem; border-bottom: 2px solid var(--accent); padding-bottom: 0.5rem; }
+  h2 { font-size: 1.35rem; margin-top: 2rem; color: var(--accent); }
+  h3 { font-size: 1.1rem; margin-top: 1.5rem; }
+  p { margin: 0.75rem 0; }
+  code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.9em; }
+  pre { background: var(--code-bg); padding: 1rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; font-size: 0.85rem; line-height: 1.6; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+  th, td { border: 1px solid var(--border); padding: 0.6rem 0.8rem; text-align: left; }
+  th { background: #f0f4ff; font-weight: 600; }
+  .quiz { background: #eff6ff; border-left: 4px solid var(--accent); padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .quiz h3 { color: var(--accent); margin-top: 0; }
+  .quiz-option { display: block; margin: 0.4rem 0; padding: 0.5rem 0.75rem; background: white; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+  .quiz-option:hover { border-color: var(--accent); background: #f0f4ff; }
+  .quiz-option.correct { background: #dcfce7; border-color: #16a34a; }
+  .quiz-option.wrong { background: #fee2e2; border-color: #dc2626; }
+  .quiz-feedback { margin-top: 0.75rem; padding: 0.75rem; border-radius: 6px; display: none; font-size: 0.9rem; }
+  .interview { background: var(--highlight); border-left: 4px solid #f59e0b; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .interview::before { content: "🎯 面试角度"; font-weight: 700; display: block; margin-bottom: 0.5rem; color: #92400e; }
+  .analogy { background: var(--green-bg); border-left: 4px solid #16a34a; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .analogy::before { content: "☕ Java 后端类比"; font-weight: 700; display: block; margin-bottom: 0.5rem; color: #166534; }
+  .key-point { background: #fef2f2; border: 1px solid #fecaca; padding: 0.75rem 1rem; border-radius: 8px; margin: 1rem 0; }
+  .key-point::before { content: "⚠️ 关键区分"; font-weight: 700; display: block; margin-bottom: 0.3rem; color: #dc2626; }
+  .nav { display: flex; justify-content: space-between; margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+  .nav a { color: var(--accent); text-decoration: none; }
+  .tip { background: #f8fafc; padding: 0.75rem 1rem; border-radius: 8px; margin: 1rem 0; font-size: 0.9rem; color: #475569; }
+  .exercise { background: var(--green-bg); border-left: 4px solid #16a34a; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .exercise::before { content: "✏️ 动手练习"; font-weight: 700; display: block; margin-bottom: 0.5rem; color: #166534; }
+  .ref { background: #eff6ff; border-left: 4px solid var(--accent); padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .ref::before { content: "📖 延伸阅读"; font-weight: 700; display: block; margin-bottom: 0.5rem; color: var(--accent); }
+  .phase { background: #fef9c3; border: 2px solid #eab308; padding: 0.5rem 1rem; margin: 1.5rem 0; border-radius: 8px; font-size: 0.9rem; }
+  .phase::before { content: "📍 Phase 2 · Stage 2"; font-weight: 700; color: #854d0e; }
+  ul, ol { margin-left: 1.2rem; margin-bottom: 0.5rem; }
+  li { margin-bottom: 0.3rem; }
+  .diagram { background: white; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin: 1.25rem 0; text-align: center; overflow-x: auto; }
+  .diagram svg { max-width: 100%; height: auto; }
+  .diagram figcaption { font-size: 0.85rem; color: #64748b; margin-top: 0.5rem; }
+  @media print { body { max-width: 100%; } .diagram { page-break-inside: avoid; } }
+</style>
+</head>
+<body>
+
+<h1>L0006 - RAG Pipeline 全流程</h1>
+<p><strong>让 Agent 拥有知识库：文档加载 → 分块 → 向量化 → 检索 → 生成带引用的回答</strong></p>
+
+<div class="phase">L2.1 · RAG Pipeline 全流程</div>
+
+<h2>1. 为什么需要 RAG？</h2>
+
+<p>Phase 1 的 Agent 只有 LLM 内置知识（训练数据截止日期之前的），加上你给的 system prompt。但它不知道你公司的内部文档、最新新闻、私有数据库。</p>
+
+<p><strong>RAG（Retrieval-Augmented Generation）</strong>解决的就是这个问题：先从知识库中检索相关内容，再让 LLM 基于检索结果回答。</p>
+
+<div class="analogy">
+  RAG ≈ <strong>带资料的开卷考试</strong>。<br>
+  没有 RAG：LLM 凭记忆回答（闭卷）。<br>
+  有 RAG：LLM 先查资料，再基于资料回答（开卷）。<br>
+  类比后端：RAG ≈ 先查 Redis 缓存再拼响应，而非只用代码里的硬编码常量。
+</div>
+
+<div class="key-point">
+  <strong>RAG 不是让 LLM "学习"新知识。</strong><br>
+  LLM 的参数没变。RAG 是把检索到的文本片段塞进 prompt，让 LLM 基于这些片段回答。<br>
+  类比：不是让员工背资料，而是让员工带着资料上考场。
+</div>
+
+<h2>2. RAG Pipeline 七步全景</h2>
+
+<figure class="diagram">
+<svg viewBox="0 0 600 470" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="RAG 七步管线">
+  <defs>
+    <marker id="rArr" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#2563eb"/>
+    </marker>
+  </defs>
+
+  <!-- 顶部输入 -->
+  <text x="230" y="25" text-anchor="middle" font-size="12" fill="#475569">输入：文档 / 知识库</text>
+
+  <!-- 节点（标题在框内，描述在右侧）-->
+  <!-- ① 加载文档 -->
+  <rect x="140" y="40" width="180" height="42" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+  <text x="230" y="66" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">① 加载文档</text>
+  <text x="335" y="66" font-size="11" fill="#475569">PDF/HTML/MD → 纯文本</text>
+  <line x1="230" y1="82" x2="230" y2="97" stroke="#2563eb" stroke-width="2.2" marker-end="url(#rArr)"/>
+
+  <!-- ② 分块 -->
+  <rect x="140" y="100" width="180" height="42" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+  <text x="230" y="126" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">② 分块</text>
+  <text x="335" y="126" font-size="11" fill="#475569">长文本 → N 个 chunk</text>
+  <line x1="230" y1="142" x2="230" y2="157" stroke="#2563eb" stroke-width="2.2" marker-end="url(#rArr)"/>
+
+  <!-- ③ 向量化 -->
+  <rect x="140" y="160" width="180" height="42" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+  <text x="230" y="186" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">③ 向量化</text>
+  <text x="335" y="186" font-size="11" fill="#475569">chunk → embedding 向量</text>
+  <line x1="230" y1="202" x2="230" y2="217" stroke="#2563eb" stroke-width="2.2" marker-end="url(#rArr)"/>
+
+  <!-- ④ 存入向量库 -->
+  <rect x="140" y="220" width="180" height="42" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+  <text x="230" y="246" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">④ 存入向量库</text>
+  <text x="335" y="246" font-size="11" fill="#475569">向量 + 原文 → 索引</text>
+
+  <!-- 阶段分隔 + 第二输入 -->
+  <line x1="230" y1="262" x2="230" y2="277" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3,3"/>
+  <text x="230" y="293" text-anchor="middle" font-size="12" font-weight="600" fill="#dc2626">输入：用户提问</text>
+  <line x1="230" y1="299" x2="230" y2="314" stroke="#2563eb" stroke-width="2.2" marker-end="url(#rArr)"/>
+
+  <!-- ⑤ 检索 -->
+  <rect x="140" y="317" width="180" height="42" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+  <text x="230" y="343" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">⑤ 检索</text>
+  <text x="335" y="343" font-size="11" fill="#475569">question → Top-K 相似 chunk</text>
+  <line x1="230" y1="359" x2="230" y2="374" stroke="#2563eb" stroke-width="2.2" marker-end="url(#rArr)"/>
+
+  <!-- ⑥ 重排（可选）虚边表可选 -->
+  <rect x="140" y="377" width="180" height="42" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2" stroke-dasharray="5,3"/>
+  <text x="230" y="403" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">⑥ 重排（可选）</text>
+  <text x="335" y="403" font-size="11" fill="#475569">cross-encoder 精排</text>
+  <line x1="230" y1="419" x2="230" y2="434" stroke="#16a34a" stroke-width="2.2" marker-end="url(#rArr)"/>
+
+  <!-- ⑦ 生成回答：终点绿 -->
+  <rect x="140" y="437" width="180" height="42" rx="10" fill="#f0fdf4" stroke="#16a34a" stroke-width="2"/>
+  <text x="230" y="463" text-anchor="middle" font-size="14" font-weight="700" fill="#166534">⑦ 生成回答（带引用）</text>
+  <text x="335" y="463" font-size="11" fill="#166534">LLM → 带来源标注</text>
+
+  <!-- 右侧阶段括号 -->
+  <line x1="540" y1="40" x2="555" y2="40" stroke="#94a3b8" stroke-width="1.2"/>
+  <line x1="555" y1="40" x2="555" y2="262" stroke="#94a3b8" stroke-width="1.2"/>
+  <line x1="540" y1="262" x2="555" y2="262" stroke="#94a3b8" stroke-width="1.2"/>
+  <text x="572" y="155" font-size="11" font-weight="600" fill="#64748b" transform="rotate(-90 572 155)">离线建库（一次）</text>
+
+  <line x1="540" y1="317" x2="555" y2="317" stroke="#94a3b8" stroke-width="1.2"/>
+  <line x1="555" y1="317" x2="555" y2="479" stroke="#94a3b8" stroke-width="1.2"/>
+  <line x1="540" y1="479" x2="555" y2="479" stroke="#94a3b8" stroke-width="1.2"/>
+  <text x="572" y="400" font-size="11" font-weight="600" fill="#64748b" transform="rotate(-90 572 400)">在线查询（每次）</text>
+</svg>
+<figcaption>RAG 七步：前 4 步离线建库，后 3 步在线查询；虚框=可选步骤</figcaption>
+</figure>
+
+<p>前 4 步是<strong>离线建库</strong>（做一次），后 3 步是<strong>在线查询</strong>（每次提问都走）。</p>
+
+<div class="analogy">
+  离线建库 ≈ <strong>建 Elasticsearch 索引</strong>（倒排索引、分词、存储）。<br>
+  在线查询 ≈ <strong>用户搜索</strong>（query → 分词 → 匹配 → 返回结果）。<br>
+  RAG 只是把"关键词匹配"换成了"语义向量匹配"。
+</div>
+
+<h2>3. Step 1-2：文档加载与分块</h2>
+
+<h3>文档加载</h3>
+
+<pre>
+# pip install pypdf beautifulsoup4
+from pypdf import PdfReader
+from bs4 import BeautifulSoup
+
+def load_pdf(path: str) -> str:
+    reader = PdfReader(path)
+    return "\n".join(page.extract_text() for page in reader.pages)
+
+def load_html(path: str) -> str:
+    with open(path, encoding="utf-8") as f:
+        soup = BeautifulSoup(f, "html.parser")
+    return soup.get_text()
+
+def load_markdown(path: str) -> str:
+    with open(path, encoding="utf-8") as f:
+        return f.read()
+</pre>
+
+<h3>分块策略</h3>
+
+<p>LLM 上下文窗口有限（4K-200K tokens），不能把整本 PDF 塞进去。需要切成小块。</p>
+
+<table>
+  <tr><th>策略</th><th>原理</th><th>优点</th><th>缺点</th></tr>
+  <tr><td>固定长度</td><td>每 500 字符切一刀，重叠 50 字符</td><td>简单、可控</td><td>可能切断语义</td></tr>
+  <tr><td>递归字符</td><td>按 \n\n → \n → 。→ 空格 递归切</td><td>尊重段落边界</td><td>chunk 大小不均</td></tr>
+  <tr><td>语义分块</td><td>用 embedding 相似度找断点</td><td>语义最连贯</td><td>计算成本高</td></tr>
+</table>
+
+<pre>
+# 最常用：递归字符分块
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=500,       # 每个 chunk 最大 500 字符
+    chunk_overlap=50,     # 相邻 chunk 重叠 50 字符（防切断）
+    separators=["\n\n", "\n", "。", "，", " "],
+)
+
+chunks = splitter.split_text(long_text)
+print(f"分成 {len(chunks)} 个 chunk，平均长度 {sum(len(c) for c in chunks) // len(chunks)}")
+</pre>
+
+<div class="key-point">
+  <strong>chunk_size 设多少？</strong><br>
+  太小（&lt; 200）：上下文不够，LLM 看不出完整含义。<br>
+  太大（&gt; 1000）：塞进太多无关内容，LLM 被噪声干扰，且浪费 token。<br>
+  经验值：300-500 字符（中文）适合大多数场景。根据回答质量调优。
+</div>
+
+<h2>4. Step 3-4：向量化和存储</h2>
+
+<h3>什么是 Embedding？</h3>
+
+<p>Embedding 是把文本映射到一个高维向量（如 1536 维）。语义相近的文本，向量距离近。</p>
+
+<pre>
+"猫吃鱼"     → [0.12, -0.34, 0.56, ..., 0.78]  # 1536 维
+"猫咪吃小鱼"  → [0.11, -0.33, 0.55, ..., 0.77]  # 很接近
+"Java 多线程" → [0.89, 0.12, -0.45, ..., 0.23]  # 很远
+</pre>
+
+<div class="analogy">
+  Embedding ≈ <strong>给每段文本算一个"语义指纹"</strong>。<br>
+  就像数据库给每条记录建索引——只不过传统索引按关键词，向量索引按语义。<br>
+  类比 MySQL：FULLTEXT INDEX 用关键词匹配，VECTOR INDEX 用余弦相似度匹配。
+</div>
+
+<h3>代码：生成 Embedding + 存入 FAISS</h3>
+
+<pre>
+# pip install faiss-cpu openai
+import faiss
+import numpy as np
+from openai import OpenAI
+
+client = OpenAI()
+
+def get_embeddings(texts: list[str]) -> np.ndarray:
+    """批量获取 embedding 向量"""
+    response = client.embeddings.create(
+        model="text-embedding-3-small",
+        input=texts,
+    )
+    vectors = [item.embedding for item in response.data]
+    return np.array(vectors, dtype="float32")
+
+# 生成 embeddings
+embeddings = get_embeddings(chunks)
+
+# 建立向量索引
+dimension = embeddings.shape[1]  # 1536
+index = faiss.IndexFlatIP(dimension)  # 内积相似度（需先归一化）
+faiss.normalize_L2(embeddings)        # L2 归一化后内积 = 余弦相似度
+index.add(embeddings)
+
+print(f"索引了 {index.ntotal} 个 chunk")
+</pre>
+
+<table>
+  <tr><th>向量库</th><th>类型</th><th>适用场景</th><th>类比</th></tr>
+  <tr><td>FAISS</td><td>本地库</td><td>原型验证、小数据集</td><td>SQLite</td></tr>
+  <tr><td>Chroma</td><td>本地服务</td><td>开发调试、中等数据集</td><td>H2 Database</td></tr>
+  <tr><td>Pinecone</td><td>云端托管</td><td>生产环境、大规模</td><td>RDS</td></tr>
+  <tr><td>pgvector</td><td>PostgreSQL 扩展</td><td>已有 PG 基础设施</td><td>MySQL + 全文索引</td></tr>
+</table>
+
+<h2>5. Step 5：检索</h2>
+
+<pre>
+def retrieve(question: str, index, chunks: list[str], top_k: int = 3) -> list[str]:
+    """用问题检索最相关的 top_k 个 chunk"""
+    # 问题也变成向量
+    q_embedding = get_embeddings([question])
+    faiss.normalize_L2(q_embedding)
+
+    # 在向量库中找最相似的
+    scores, indices = index.search(q_embedding, top_k)
+
+    results = []
+    for score, idx in zip(scores[0], indices[0]):
+        results.append({
+            "chunk": chunks[idx],
+            "score": float(score),
+            "index": int(idx),
+        })
+    return results
+
+# 使用
+results = retrieve("什么是 RAG？", index, chunks, top_k=3)
+for r in results:
+    print(f"[相似度: {r['score']:.3f}] {r['chunk'][:100]}...")
+</pre>
+
+<div class="key-point">
+  <strong>top_k 设多少？</strong><br>
+  太少（1-2）：可能漏掉关键信息。<br>
+  太多（&gt; 10）：引入噪声，LLM 被无关内容干扰。<br>
+  经验值：3-5 适合大多数问答场景。重要场景可到 10-20 配合 rerank。
+</div>
+
+<h2>6. Step 6：重排（Rerank，可选但推荐）</h2>
+
+<p>向量检索用双塔模型（query 和 chunk 各自编码再算相似度），速度快但精度有限。Rerank 用 cross-encoder（query 和 chunk 一起编码），更准但更慢。</p>
+
+<pre>
+流程：检索 Top-20 → Rerank 精排 → 取 Top-3
+
+向量检索：快但粗。先筛出候选集。
+Rerank：  慢但精。从候选集里挑最好的。
+</pre>
+
+<div class="analogy">
+  向量检索 ≈ <strong>Elasticsearch 粗筛</strong>（BM25 从百万文档筛出 Top 100）。<br>
+  Rerank ≈ <strong>业务层精排</strong>（从 Top 100 按业务规则排最优的 10 条）。<br>
+  两阶段是搜索系统的经典模式。
+</div>
+
+<h2>7. Step 7：生成带引用的回答</h2>
+
+<pre>
+def answer_with_citation(question: str, retrieved_chunks: list[dict]) -> str:
+    """基于检索结果生成带引用的回答"""
+    context_parts = []
+    for i, r in enumerate(retrieved_chunks, 1):
+        context_parts.append(f"[来源 {i}] {r['chunk']}")
+    context = "\n\n".join(context_parts)
+
+    prompt = f"""基于以下资料回答问题。如果资料中没有答案，说"资料中未找到相关信息"。
+回答时标注来源编号，如 [来源 1]。
+
+资料：
+{context}
+
+问题：{question}"""
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0,
+    )
+    return response.choices[0].message.content
+
+# 完整 RAG 查询
+question = "什么是 RAG？"
+results = retrieve(question, index, chunks, top_k=3)
+answer = answer_with_citation(question, results)
+print(answer)
+</pre>
+
+<h2>8. 完整最小 RAG Pipeline</h2>
+
+<pre>
+# 1. 加载
+text = load_pdf("company_faq.pdf")
+
+# 2. 分块
+chunks = splitter.split_text(text)
+
+# 3. 向量化
+embeddings = get_embeddings(chunks)
+
+# 4. 建索引
+index = faiss.IndexFlatIP(embeddings.shape[1])
+faiss.normalize_L2(embeddings)
+index.add(embeddings)
+
+# 5. 检索
+results = retrieve("年假怎么请？", index, chunks, top_k=3)
+
+# 6. 重排（可选）
+# reranked = rerank("年假怎么请？", results)
+
+# 7. 生成
+answer = answer_with_citation("年假怎么请？", results)
+</pre>
+
+<div class="interview">
+  "请描述 RAG 的完整 pipeline。chunking 策略对最终回答质量有什么影响？"<br><br>
+  回答要点：<br>
+  (1) 七步流程：加载 → 分块 → 向量化 → 存储 → 检索 → 重排 → 生成<br>
+  (2) 离线建库（1-4）vs 在线查询（5-7）<br>
+  (3) chunk_size 太小丢失上下文，太大引入噪声，300-500 是经验值<br>
+  (4) 向量检索快但粗，rerank 慢但精，两阶段是经典模式<br>
+  (5) temperature=0 减少 RAG 场景的幻觉
+</div>
+
+<h2>9. 自测题</h2>
+
+<div class="quiz" id="q1">
+  <h3>题目 1：RAG 中 LLM 的参数发生变化了吗？</h3>
+  <label class="quiz-option" onclick="check(this, false)">A. 是的，LLM 通过检索到的文档微调了参数</label>
+  <label class="quiz-option" onclick="check(this, true)">B. 没有，检索结果只是塞进了 prompt，LLM 参数不变</label>
+  <label class="quiz-option" onclick="check(this, false)">C. 取决于是否使用 fine-tuning</label>
+  <label class="quiz-option" onclick="check(this, false)">D. 只有 embedding 模型参数变化</label>
+  <div class="quiz-feedback" id="q1f" style="background:#dcfce7;color:#166534;">
+    正确。RAG 不改变 LLM 参数。它把检索到的文本片段作为 context 放进 prompt，LLM 基于这些内容生成回答。类比：开卷考试不改变你的大脑，只是让你可以翻书。
+  </div>
+</div>
+
+<div class="quiz" id="q2">
+  <h3>题目 2：chunk_size 设太小（如 50 字符）会导致什么问题？</h3>
+  <label class="quiz-option" onclick="check(this, true)">A. 上下文不完整，LLM 无法理解完整含义</label>
+  <label class="quiz-option" onclick="check(this, false)">B. 向量化更精确</label>
+  <label class="quiz-option" onclick="check(this, false)">C. 检索速度变慢</label>
+  <label class="quiz-option" onclick="check(this, false)">D. 没有影响</label>
+  <div class="quiz-feedback" id="q2f" style="background:#dcfce7;color:#166534;">
+    正确。50 字符可能只有一句话的片段，缺少上下文。LLM 看到的 chunk 不完整，回答质量下降。chunk_size 的调优是 RAG 效果的关键杠杆之一。
+  </div>
+</div>
+
+<div class="quiz" id="q3">
+  <h3>题目 3：为什么推荐向量检索 + Rerank 两阶段？</h3>
+  <label class="quiz-option" onclick="check(this, false)">A. 为了省 token</label>
+  <label class="quiz-option" onclick="check(this, true)">B. 向量检索快但粗（双塔模型），Rerank 慢但精（cross-encoder），互补</label>
+  <label class="quiz-option" onclick="check(this, false)">C. 只用 Rerank 就够了</label>
+  <label class="quiz-option" onclick="check(this, false)">D. 两阶段是为了减少 API 调用</label>
+  <div class="quiz-feedback" id="q3f" style="background:#dcfce7;color:#166534;">
+    正确。向量检索从百万 chunk 中快速筛出 Top-20（毫秒级），Rerank 再精排到 Top-3（百毫秒级）。速度和精度兼顾——和搜索引擎的粗排+精排是同一个思路。
+  </div>
+</div>
+
+<h2>10. 动手练习</h2>
+
+<div class="exercise">
+  <strong>练习：搭建一个最小 RAG 问答系统</strong><br><br>
+  步骤：<br>
+  1. 准备 3-5 个 Markdown 文件（可以是课程笔记、公司 FAQ 等）<br>
+  2. 用 <code>RecursiveCharacterTextSplitter</code> 分块（chunk_size=400, overlap=50）<br>
+  3. 用 OpenAI <code>text-embedding-3-small</code> 生成向量<br>
+  4. 用 FAISS 建索引<br>
+  5. 实现检索 + 生成回答（要求标注来源编号）<br>
+  6. 试不同 chunk_size（200 / 400 / 800），观察回答质量变化<br><br>
+  预期产出：<code>minimal_rag.py</code><br>
+  选做：把 RAG 检索包装成 Agent 的一个 tool，接入 L0004 的 Agent Loop。
+</div>
+
+<div class="ref">
+  <a href="https://docs.llamaindex.ai/en/stable/use_cases/agents/" target="_blank">LlamaIndex Agents</a><br>
+  <a href="https://python.langchain.com/docs/concepts/retrievers/" target="_blank">LangChain Retrievers</a><br>
+  <a href="https://github.com/facebookresearch/faiss/wiki" target="_blank">FAISS Wiki</a><br>
+  <a href="https://www.pinecone.io/learn/retrieval-augmented-generation/" target="_blank">Pinecone: What is RAG</a>
+</div>
+
+<div class="tip">
+  完成练习后，有任何不清楚的地方直接问 Claude——这就是你的老师。<br>
+  下一课：<a href="0007-diverse-tool-integration.html">L0007 - 多样化工具接入</a>——搜索引擎、数据库、文件系统、代码执行，让 Agent 能力边界远超对话。
+</div>
+
+<div class="nav">
+  <a href="0005-agent-robustness.html">← L0005: Agent 健壮性处理</a>
+  <a href="0007-diverse-tool-integration.html">L0007: 多样化工具接入 →</a>
+</div>
+
+<script>
+function check(el, isCorrect) {
+  const quiz = el.closest('.quiz');
+  const options = quiz.querySelectorAll('.quiz-option');
+  const feedback = quiz.querySelector('.quiz-feedback');
+  options.forEach(o => { o.style.pointerEvents = 'none'; });
+  if (isCorrect) {
+    el.classList.add('correct');
+  } else {
+    el.classList.add('wrong');
+    options.forEach(o => { if (o !== el && o.onclick.toString().includes('true')) o.classList.add('correct'); });
+  }
+  feedback.style.display = 'block';
+}
+</script>
+</body>
+</html>

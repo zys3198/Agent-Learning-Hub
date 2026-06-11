@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L0002 - LLM API 基础调用：从 curl 到 Python SDK</title>
+<style>
+  :root { --bg: #fafafa; --text: #1a1a1a; --accent: #2563eb; --border: #e5e7eb; --code-bg: #f3f4f6; --highlight: #fef3c7; --green-bg: #f0fdf4; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "Noto Sans SC", sans-serif; background: var(--bg); color: var(--text); line-height: 1.75; max-width: 780px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 1.75rem; margin-bottom: 0.5rem; border-bottom: 2px solid var(--accent); padding-bottom: 0.5rem; }
+  h2 { font-size: 1.35rem; margin-top: 2rem; color: var(--accent); }
+  h3 { font-size: 1.1rem; margin-top: 1.5rem; }
+  p { margin: 0.75rem 0; }
+  code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.9em; }
+  pre { background: var(--code-bg); padding: 1rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; font-size: 0.85rem; line-height: 1.6; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+  th, td { border: 1px solid var(--border); padding: 0.6rem 0.8rem; text-align: left; }
+  th { background: #f0f4ff; font-weight: 600; }
+  .quiz { background: #eff6ff; border-left: 4px solid var(--accent); padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .quiz h3 { color: var(--accent); margin-top: 0; }
+  .quiz-option { display: block; margin: 0.4rem 0; padding: 0.5rem 0.75rem; background: white; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+  .quiz-option:hover { border-color: var(--accent); background: #f0f4ff; }
+  .quiz-option.correct { background: #dcfce7; border-color: #16a34a; }
+  .quiz-option.wrong { background: #fee2e2; border-color: #dc2626; }
+  .quiz-feedback { margin-top: 0.75rem; padding: 0.75rem; border-radius: 6px; display: none; font-size: 0.9rem; }
+  .interview { background: var(--highlight); border-left: 4px solid #f59e0b; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .interview::before { content: "🎯 面试角度"; font-weight: 700; display: block; margin-bottom: 0.5rem; color: #92400e; }
+  .analogy { background: var(--green-bg); border-left: 4px solid #16a34a; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .analogy::before { content: "☕ Java 后端类比"; font-weight: 700; display: block; margin-bottom: 0.5rem; color: #166534; }
+  .key-point { background: #fef2f2; border: 1px solid #fecaca; padding: 0.75rem 1rem; border-radius: 8px; margin: 1rem 0; }
+  .key-point::before { content: "⚠️ 关键区分"; font-weight: 700; display: block; margin-bottom: 0.3rem; color: #dc2626; }
+  .nav { display: flex; justify-content: space-between; margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+  .nav a { color: var(--accent); text-decoration: none; }
+  .tip { background: #f8fafc; padding: 0.75rem 1rem; border-radius: 8px; margin: 1rem 0; font-size: 0.9rem; color: #475569; }
+  .exercise { background: var(--green-bg); border-left: 4px solid #16a34a; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .exercise::before { content: "✏️ 动手练习"; font-weight: 700; display: block; margin-bottom: 0.5rem; color: #166534; }
+  .diff { background: #f5f3ff; border-left: 4px solid #7c3aed; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .diff::before { content: "🔍 OpenAI vs Claude 差异"; font-weight: 700; display: block; margin-bottom: 0.5rem; color: #5b21b6; }
+  ul, ol { margin-left: 1.2rem; margin-bottom: 0.5rem; }
+  li { margin-bottom: 0.3rem; }
+  @media print { body { max-width: 100%; } }
+</style>
+</head>
+<body>
+
+<h1>L0002 - LLM API 基础调用</h1>
+<p><strong>从 curl 到 Python SDK：理解 messages 结构和核心参数</strong></p>
+
+<h2>1. 先搞清一件事：你调的不是"模型"，是"API"</h2>
+
+<p>LLM 不在你本地运行。你的代码做的事情是：<strong>构造一个 HTTP 请求，发给远程服务器，拿到 JSON 响应</strong>。</p>
+
+<div class="analogy">
+  调 LLM API ≈ 调一个远程 REST 接口。<br>
+  URL 就是 endpoint，messages 就是请求体，响应里的 content 就是返回值。<br>
+  <code>client.chat.completions.create()</code> ≈ <code>RestTemplate.postForObject()</code>，SDK 只是把 HTTP 细节封装了。
+</div>
+
+<p>所以学习顺序是：</p>
+<ol>
+  <li>先用 <strong>curl</strong> 直接调（理解底层 HTTP）</li>
+  <li>再用 <strong>Python SDK</strong> 调（工程实践中用这个）</li>
+</ol>
+
+<h2>2. curl 方式：看到裸的 HTTP 请求</h2>
+
+<pre>
+# OpenAI API — 最基础的聊天请求
+curl https://api.openai.com/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -d '{
+    "model": "gpt-4o-mini",
+    "messages": [
+      {"role": "system", "content": "你是一个有帮助的助手。"},
+      {"role": "user", "content": "什么是 Agent？一句话回答。"}
+    ],
+    "temperature": 0.7,
+    "max_tokens": 100
+  }'
+</pre>
+
+<p>响应结构：</p>
+<pre>
+{
+  "choices": [{
+    "message": {
+      "role": "assistant",
+      "content": "Agent 是能自主感知环境、做决策、执行动作的 AI 程序。"
+    },
+    "finish_reason": "stop"
+  }],
+  "usage": {
+    "prompt_tokens": 28,
+    "completion_tokens": 18,
+    "total_tokens": 46
+  }
+}
+</pre>
+
+<div class="key-point">
+  核心数据结构就是 <strong>messages 数组</strong>：每条消息有 <code>role</code> 和 <code>content</code>。<br>
+  你传进去的 messages 越长，token 消耗越多，费用越高。
+</div>
+
+<h2>3. messages 结构：四种角色</h2>
+
+<table>
+  <tr><th>角色</th><th>作用</th><th>Java 类比</th></tr>
+  <tr><td><code>system</code></td><td>设定 AI 的行为规则和人设</td><td>Filter/Interceptor 中的初始化配置</td></tr>
+  <tr><td><code>user</code></td><td>用户的输入</td><td>HTTP Request Body</td></tr>
+  <tr><td><code>assistant</code></td><td>AI 的回复</td><td>HTTP Response Body</td></tr>
+  <tr><td><code>tool</code></td><td>工具调用的返回结果（下节课详解）</td><td>RPC 的返回值</td></tr>
+</table>
+
+<p>对话就是不断往 messages 数组追加消息：</p>
+<pre>
+# 第一轮
+messages = [
+    {"role": "system", "content": "你是 Java 专家。"},
+    {"role": "user", "content": "什么是 Spring IOC？"},
+]
+# → AI 回复后，追加 assistant 消息
+
+# 第二轮（带上历史）
+messages = [
+    {"role": "system", "content": "你是 Java 专家。"},
+    {"role": "user", "content": "什么是 Spring IOC？"},
+    {"role": "assistant", "content": "IOC 是控制反转..."},
+    {"role": "user", "content": "和 DI 有什么区别？"},  # 新问题
+]
+</pre>
+
+<div class="analogy">
+  messages 数组 ≈ HTTP Session 中的聊天历史。<br>
+  每次请求都是<strong>无状态的</strong>——服务器不记得你，你每次要把完整历史都传过去。<br>
+  这就是为什么上下文长度（context window）那么重要——它限制了 messages 数组的总长度。
+</div>
+
+<h2>4. Python SDK 调用</h2>
+
+<h3>4.1 OpenAI SDK</h3>
+
+<pre>
+from openai import OpenAI
+
+client = OpenAI()  # 自动读 OPENAI_API_KEY 环境变量
+
+response = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[
+        {"role": "system", "content": "你是一个有帮助的助手。"},
+        {"role": "user", "content": "用一句话解释什么是 API。"},
+    ],
+    temperature=0.7,
+    max_tokens=100,
+)
+
+# 访问响应
+print(response.choices[0].message.content)
+print(f"Token 用量: {response.usage.prompt_tokens} + {response.usage.completion_tokens}")
+</pre>
+
+<h3>4.2 Anthropic SDK（Claude）</h3>
+
+<pre>
+from anthropic import Anthropic
+
+client = Anthropic()  # 自动读 ANTHROPIC_API_KEY 环境变量
+
+response = client.messages.create(
+    model="claude-sonnet-4-5-20250514",
+    max_tokens=100,      # Claude 必填！
+    system="你是一个有帮助的助手。",  # system 不在 messages 里！
+    messages=[
+        {"role": "user", "content": "用一句话解释什么是 API。"},
+    ],
+    temperature=0.7,
+)
+
+# 访问响应 — 注意是 .content[0].text，不是 .content
+print(response.content[0].text)
+print(f"Token 用量: {response.usage.input_tokens} + {response.usage.output_tokens}")
+</pre>
+
+<h2>5. 两家 API 关键差异</h2>
+
+<div class="diff">
+<table>
+  <tr><th>差异点</th><th>OpenAI</th><th>Anthropic (Claude)</th></tr>
+  <tr><td>system 消息</td><td>在 <code>messages</code> 数组内</td><td>独立的 <code>system</code> 参数</td></tr>
+  <tr><td>max_tokens</td><td>可选（推荐用 <code>max_completion_tokens</code>）</td><td><strong>必填</strong></td></tr>
+  <tr><td>响应内容</td><td><code>.choices[0].message.content</code></td><td><code>.content[0].text</code></td></tr>
+  <tr><td>Token 用量字段</td><td><code>prompt_tokens / completion_tokens</code></td><td><code>input_tokens / output_tokens</code></td></tr>
+  <tr><td>结束原因</td><td><code>finish_reason</code>: <code>"stop"</code></td><td><code>stop_reason</code>: <code>"end_turn"</code></td></tr>
+  <tr><td>第一条消息</td><td>可以是 <code>system</code></td><td>必须是 <code>user</code></td></tr>
+</table>
+</div>
+
+<div class="interview">
+  "OpenAI 和 Anthropic 的 API 有什么区别？"<br><br>
+  回答要点：<br>
+  (1) system prompt 位置不同——OpenAI 放 messages 里，Anthropic 是独立参数<br>
+  (2) Anthropic 的 max_tokens 是必填参数，OpenAI 可选<br>
+  (3) 响应结构不同——OpenAI 用 choices 数组，Anthropic 用 content 数组<br>
+  (4) <strong>本质相同</strong>：都是 HTTP 请求，都是 messages 进、文本出
+</div>
+
+<h2>6. 核心参数怎么调</h2>
+
+<table>
+  <tr><th>参数</th><th>作用</th><th>什么时候调</th></tr>
+  <tr>
+    <td><code>temperature</code></td>
+    <td>控制随机性。0 = 确定性输出，1 = 正常随机，2 = 非常随机</td>
+    <td>需要确定性（代码生成、数据提取）→ 0；需要创意（写作、头脑风暴）→ 0.7-1.0</td>
+  </tr>
+  <tr>
+    <td><code>max_tokens</code></td>
+    <td>限制回复的最大长度</td>
+    <td>需要短回答（分类、提取）→ 100-500；需要长回答（文章、代码）→ 2000-4096</td>
+  </tr>
+  <tr>
+    <td><code>model</code></td>
+    <td>选择模型能力层级</td>
+    <td>简单任务用小模型（快+便宜），复杂推理用大模型</td>
+  </tr>
+</table>
+
+<div class="analogy">
+  <code>temperature</code> ≈ 数据库隔离级别。<br>
+  <code>temperature=0</code> ≈ SERIALIZABLE（完全确定性）<br>
+  <code>temperature=1</code> ≈ READ COMMITTED（正常并发）<br>
+  不是越高越好——确定性场景用 0，创意场景用 0.7-1.0。
+</div>
+
+<h2>7. 自测题</h2>
+
+<div class="quiz" id="q1">
+  <h3>题目 1：OpenAI 的 system prompt 放在哪里？</h3>
+  <label class="quiz-option" onclick="check(this, true)">A. messages 数组内，role 为 "system"</label>
+  <label class="quiz-option" onclick="check(this, false)">B. 独立的 system 参数</label>
+  <label class="quiz-option" onclick="check(this, false)">C. HTTP Header 里</label>
+  <label class="quiz-option" onclick="check(this, false)">D. 不支持 system prompt</label>
+  <div class="quiz-feedback" id="q1f" style="background:#dcfce7;color:#166534;">
+    正确。OpenAI 把 system 消息放在 messages 数组内，和 user/assistant 消息同级。Anthropic 则用独立的 system 参数。
+  </div>
+</div>
+
+<div class="quiz" id="q2">
+  <h3>题目 2：以下哪个参数在 Anthropic API 中是必填的？</h3>
+  <label class="quiz-option" onclick="check(this, false)">A. temperature</label>
+  <label class="quiz-option" onclick="check(this, true)">B. max_tokens</label>
+  <label class="quiz-option" onclick="check(this, false)">C. top_p</label>
+  <label class="quiz-option" onclick="check(this, false)">D. model</label>
+  <div class="quiz-feedback" id="q2f" style="background:#dcfce7;color:#166534;">
+    正确。Anthropic 的 max_tokens 是必填参数，不传会报错。OpenAI 的 max_tokens 则是可选的。（model 也是必填，但题目问的是"容易忽略的必填参数"——max_tokens 是最常见的坑。）
+  </div>
+</div>
+
+<div class="quiz" id="q3">
+  <h3>题目 3：如果需要 LLM 做数据提取（从文本中提取结构化信息），temperature 应该设多少？</h3>
+  <label class="quiz-option" onclick="check(this, false)">A. 1.0</label>
+  <label class="quiz-option" onclick="check(this, true)">B. 0</label>
+  <label class="quiz-option" onclick="check(this, false)">C. 2.0</label>
+  <label class="quiz-option" onclick="check(this, false)">D. 0.5</label>
+  <div class="quiz-feedback" id="q3f" style="background:#dcfce7;color:#166534;">
+    正确。数据提取需要确定性输出——同样的输入应该得到同样的结果。temperature=0 让 LLM 总选概率最高的 token。
+  </div>
+</div>
+
+<h2>8. 动手练习</h2>
+
+<div class="exercise">
+  <strong>练习：跑通你的第一个 LLM API 调用</strong><br><br>
+  步骤：<br>
+  1. 安装 SDK：<code>pip install openai anthropic</code><br>
+  2. 设置环境变量：<code>export OPENAI_API_KEY=sk-xxx</code> 或 <code>export ANTHROPIC_API_KEY=sk-xxx</code><br>
+  3. 复制上面 4.1 或 4.2 的代码，保存为 <code>hello_llm.py</code><br>
+  4. 运行：<code>python hello_llm.py</code><br>
+  5. 修改 temperature 为 0 和 1.5，观察输出变化<br>
+  6. 修改 max_tokens 为 10，观察输出被截断的效果<br><br>
+  预期产出：能运行的 <code>hello_llm.py</code> + 对三个参数（model/temperature/max_tokens）的手感。
+</div>
+
+<div class="tip">
+  完成练习后，有任何不清楚的地方直接问 Claude——这就是你的老师。<br>
+  下一课：<a href="0003-tool-schema-and-function-calling.html">L0003 - Tool Schema 与结构化输出</a>——让 LLM 不只"说话"，还能"调函数"。
+</div>
+
+<div class="nav">
+  <a href="0001-what-is-an-agent.html">← L0001: Agent 到底是什么？</a>
+  <a href="0003-tool-schema-and-function-calling.html">L0003: Tool Schema 与结构化输出 →</a>
+</div>
+
+<script>
+function check(el, isCorrect) {
+  const quiz = el.closest('.quiz');
+  const options = quiz.querySelectorAll('.quiz-option');
+  const feedback = quiz.querySelector('.quiz-feedback');
+  options.forEach(o => { o.style.pointerEvents = 'none'; });
+  if (isCorrect) {
+    el.classList.add('correct');
+  } else {
+    el.classList.add('wrong');
+    options.forEach(o => { if (o !== el && o.onclick.toString().includes('true')) o.classList.add('correct'); });
+  }
+  feedback.style.display = 'block';
+}
+</script>
+</body>
+</html>

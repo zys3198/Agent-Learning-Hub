@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Agent 术语速查表</title>
+<style>
+  :root { --bg: #fafafa; --text: #1a1a1a; --accent: #2563eb; --border: #e5e7eb; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "Noto Sans SC", sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; max-width: 780px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 1.5rem; border-bottom: 2px solid var(--accent); padding-bottom: 0.5rem; margin-bottom: 1.5rem; }
+  h2 { font-size: 1.2rem; color: var(--accent); margin-top: 1.5rem; margin-bottom: 0.5rem; }
+  dt { font-weight: 700; margin-top: 0.75rem; color: #1e293b; }
+  dd { margin-left: 1rem; color: #475569; margin-bottom: 0.25rem; }
+  .en { color: #94a3b8; font-size: 0.85em; }
+  .tag { display: inline-block; background: #eff6ff; color: var(--accent); font-size: 0.75rem; padding: 0.1rem 0.5rem; border-radius: 99px; margin-left: 0.5rem; }
+  @media print { body { max-width: 100%; } }
+</style>
+</head>
+<body>
+
+<h1>AI Agent 术语速查表</h1>
+
+<h2>核心概念</h2>
+<dl>
+  <dt>Agent <span class="en">/ˈeɪdʒənt/</span></dt>
+  <dd>能自主感知环境、做决策、执行动作的 LLM 应用。核心 = LLM + Tools + Loop。<span class="tag">必考</span></dd>
+
+  <dt>Agent Loop</dt>
+  <dd>observe → think → act 的循环。Agent 在循环中反复调用 LLM，直到得到最终答案或达到步数上限。<span class="tag">必考</span></dd>
+
+  <dt>Tool / Function Call</dt>
+  <dd>LLM 输出结构化 JSON 指示要调用的函数名和参数。类比 Java 的反射调用，但由 LLM 决定调哪个方法。<span class="tag">必考</span></dd>
+
+  <dt>Workflow</dt>
+  <dd>预定义的有向无环图（DAG），步骤写死在代码里。和 Agent 的区别：决策权在代码，不在 LLM。</dd>
+
+  <dt>Chatbot</dt>
+  <dd>一问一答，无工具，无多步推理。最简单的 LLM 应用形态。</dd>
+
+  <dt>Multi-Agent</dt>
+  <dd>多个 Agent 协作完成复杂任务。常见模式：Supervisor、Router、Orchestrator-Workers。</dd>
+
+  <dt>Harness</dt>
+  <dd>Agent 的运行时框架——管理工具注册、权限、上下文、日志、子任务。类比 Java 的 Spring 容器。<span class="tag">必考</span></dd>
+</dl>
+
+<h2>工具与协议</h2>
+<dl>
+  <dt>MCP (Model Context Protocol)</dt>
+  <dd>标准化协议，让 Agent 连接外部工具和数据源。类比 JDBC——统一接口连不同数据源。<span class="tag">必考</span></dd>
+
+  <dt>A2A (Agent-to-Agent Protocol)</dt>
+  <dd>Google 主导的协议，让不同 Agent 之间发现、通信、协作。类比微服务间的服务发现。</dd>
+
+  <dt>ACP (Agent Client Protocol)</dt>
+  <dd>Agent 与宿主应用（IDE、终端、编辑器）之间的统一接口。</dd>
+
+  <dt>Skill</dt>
+  <dd>可复用的流程知识包——告诉 Agent 什么时候用、怎么用、怎么验证。Tool 是接口，Skill 是流程。<span class="tag">必考</span></dd>
+
+  <dt>Tool Schema</dt>
+  <dd>工具的 JSON Schema 描述——函数名、参数类型、描述。LLM 靠它知道能调什么、参数怎么传。</dd>
+
+  <dt>temperature</dt>
+  <dd>控制 LLM 输出随机性的参数。0 = 确定性输出（数据提取/代码生成），0.7-1.0 = 正常随机（对话/写作），2.0 = 非常随机。类比数据库隔离级别。<span class="tag">必考</span></dd>
+
+  <dt>max_tokens</dt>
+  <dd>限制 LLM 回复的最大 token 数。Anthropic API 必填，OpenAI API 可选。<span class="tag">必考</span></dd>
+
+  <dt>finish_reason / stop_reason</dt>
+  <dd>LLM 停止生成的原因。OpenAI 叫 <code>finish_reason</code>（"stop"/"length"/"tool_calls"），Anthropic 叫 <code>stop_reason</code>（"end_turn"/"max_tokens"/"stop_sequence"）。</dd>
+</dl>
+
+<h2>上下文与记忆</h2>
+<dl>
+  <dt>Context Window</dt>
+  <dd>LLM 单次能处理的最大 token 数。溢出时需要压缩（compaction）。<span class="tag">必考</span></dd>
+
+  <dt>Context Compaction</dt>
+  <dd>上下文压缩——把长对话/工具输出压缩为更短的摘要，腾出空间。类比 JVM 的 GC。</dd>
+
+  <dt>RAG (Retrieval-Augmented Generation)</dt>
+  <dd>检索增强生成：先从知识库检索相关文档，再把文档塞进 prompt 让 LLM 回答。<span class="tag">必考</span></dd>
+
+  <dt>Embedding</dt>
+  <dd>把文本转为向量（高维数组），用于语义搜索。类比数据库索引。</dd>
+
+  <dt>Chunking</dt>
+  <dd>把长文档切分成小段，每段单独 embedding 和检索。切分策略影响 RAG 质量。</dd>
+
+  <dt>Short-term Memory / Long-term Memory</dt>
+  <dd>短期 = 当前会话上下文。长期 = 跨会话持久化的记忆（用户偏好、历史摘要）。</dd>
+</dl>
+
+<h2>评测与安全</h2>
+<dl>
+  <dt>Eval / Evaluation</dt>
+  <dd>用固定测试集评估 Agent 的成功率、准确率、成本、延迟。没有 eval 的 Agent 只是 demo。<span class="tag">必考</span></dd>
+
+  <dt>Trace</dt>
+  <dd>Agent 每一步的完整记录：输入、LLM 输出、工具调用、结果。用于调试和评测。</dd>
+
+  <dt>Guardrail / 护栏</dt>
+  <dd>限制 Agent 行为的安全机制：输出校验、工具权限、人工确认、成本上限。</dd>
+
+  <dt>Prompt Injection</dt>
+  <dd>攻击者通过用户输入注入恶意指令，诱导 Agent 执行非预期操作。<span class="tag">必考</span></dd>
+
+  <dt>SWE-bench</dt>
+  <dd>真实 GitHub issue 修复评测基准。衡量 coding agent 在真实代码库上的表现。</dd>
+</dl>
+
+<h2>关键论文</h2>
+<dl>
+  <dt>ReAct (2022)</dt>
+  <dd>Reasoning + Acting 范式。LLM 先推理再行动，交替进行。Agent loop 的理论基础。</dd>
+
+  <dt>Reflexion (2023)</dt>
+  <dd>Agent 通过语言反馈自我改进。做完任务后反思失败原因，下次避免。</dd>
+
+  <dt>Toolformer (2023)</dt>
+  <dd>模型自动学会何时调用工具。从"人类教它用工具"到"自己学会用工具"。</dd>
+</dl>
+
+</body>
+</html>

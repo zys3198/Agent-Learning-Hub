@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L0004 - 手写最小 Agent Loop：50 行代码写一个 Agent</title>
+<style>
+  :root { --bg: #fafafa; --text: #1a1a1a; --accent: #2563eb; --border: #e5e7eb; --code-bg: #f3f4f6; --highlight: #fef3c7; --green-bg: #f0fdf4; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "Noto Sans SC", sans-serif; background: var(--bg); color: var(--text); line-height: 1.75; max-width: 780px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 1.75rem; margin-bottom: 0.5rem; border-bottom: 2px solid var(--accent); padding-bottom: 0.5rem; }
+  h2 { font-size: 1.35rem; margin-top: 2rem; color: var(--accent); }
+  h3 { font-size: 1.1rem; margin-top: 1.5rem; }
+  p { margin: 0.75rem 0; }
+  code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.9em; }
+  pre { background: var(--code-bg); padding: 1rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; font-size: 0.85rem; line-height: 1.6; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+  th, td { border: 1px solid var(--border); padding: 0.6rem 0.8rem; text-align: left; }
+  th { background: #f0f4ff; font-weight: 600; }
+  .quiz { background: #eff6ff; border-left: 4px solid var(--accent); padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .quiz h3 { color: var(--accent); margin-top: 0; }
+  .quiz-option { display: block; margin: 0.4rem 0; padding: 0.5rem 0.75rem; background: white; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+  .quiz-option:hover { border-color: var(--accent); background: #f0f4ff; }
+  .quiz-option.correct { background: #dcfce7; border-color: #16a34a; }
+  .quiz-option.wrong { background: #fee2e2; border-color: #dc2626; }
+  .quiz-feedback { margin-top: 0.75rem; padding: 0.75rem; border-radius: 6px; display: none; font-size: 0.9rem; }
+  .interview { background: var(--highlight); border-left: 4px solid #f59e0b; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .interview::before { content: "🎯 面试角度"; font-weight: 700; display: block; margin-bottom: 0.5rem; color: #92400e; }
+  .analogy { background: var(--green-bg); border-left: 4px solid #16a34a; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .analogy::before { content: "☕ Java 后端类比"; font-weight: 700; display: block; margin-bottom: 0.5rem; color: #166534; }
+  .key-point { background: #fef2f2; border: 1px solid #fecaca; padding: 0.75rem 1rem; border-radius: 8px; margin: 1rem 0; }
+  .key-point::before { content: "⚠️ 关键区分"; font-weight: 700; display: block; margin-bottom: 0.3rem; color: #dc2626; }
+  .nav { display: flex; justify-content: space-between; margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+  .nav a { color: var(--accent); text-decoration: none; }
+  .tip { background: #f8fafc; padding: 0.75rem 1rem; border-radius: 8px; margin: 1rem 0; font-size: 0.9rem; color: #475569; }
+  .exercise { background: var(--green-bg); border-left: 4px solid #16a34a; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .exercise::before { content: "✏️ 动手练习"; font-weight: 700; display: block; margin-bottom: 0.5rem; color: #166534; }
+  .ref { background: #eff6ff; border-left: 4px solid var(--accent); padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .ref::before { content: "📖 延伸阅读"; font-weight: 700; display: block; margin-bottom: 0.5rem; color: var(--accent); }
+  ul, ol { margin-left: 1.2rem; margin-bottom: 0.5rem; }
+  li { margin-bottom: 0.3rem; }
+  @media print { body { max-width: 100%; } }
+</style>
+</head>
+<body>
+
+<h1>L0004 - 手写最小 Agent Loop</h1>
+<p><strong>50 行代码写一个能跑的 Agent：calculator + search 两个工具</strong></p>
+
+<h2>1. 回顾：Agent Loop 三要素</h2>
+
+<p>L0001 讲概念，L0002 讲 API 调用，L0003 讲 Tool Call。现在串起来：</p>
+
+<pre>
+Agent = LLM + Tools + Loop
+
+while not done:
+    response = llm.chat(messages, tools)       # ← L0002: API 调用
+    if response.has_tool_calls:                # ← L0003: 解析 Tool Call
+        results = execute_tools(tool_calls)    # ← L0003: 执行 + 回传
+        messages.append(response, results)
+    else:
+        return response.content                # ← 终止：最终答案
+</pre>
+
+<div class="analogy">
+  Agent Loop ≈ <strong>事件循环</strong>（Event Loop）。<br>
+  每轮：从 LLM 拿一个"事件"（tool_call 或纯文本）。<br>
+  tool_call → 执行 → 结果变新事件 → 继续循环。<br>
+  纯文本 → 无新事件 → 循环结束。
+</div>
+
+<h2>2. 定义工具函数</h2>
+
+<pre>
+import json
+
+def calculator(expression: str) -> str:
+    """计算数学表达式"""
+    try:
+        result = eval(expression)  # 仅用于演示，生产环境不要用 eval
+        return str(result)
+    except Exception as e:
+        return f"计算错误: {e}"
+
+def search(query: str) -> str:
+    """模拟搜索（返回假数据）"""
+    fake_db = {
+        "Python": "Python 由 Guido van Rossum 于 1991 年发布。",
+        "Java": "Java 由 Sun Microsystems 于 1995 年发布。",
+        "Agent": "Agent 是能自主感知环境、做决策、执行动作的 LLM 应用。",
+    }
+    for key, value in fake_db.items():
+        if key.lower() in query.lower():
+            return value
+    return f"未找到关于 '{query}' 的结果。"
+</pre>
+
+<h2>3. 定义 Tool Schema（Anthropic 版本）</h2>
+
+<pre>
+tools = [
+    {
+        "name": "calculator",
+        "description": "计算数学表达式，如 '2+2' 或 '3.14 * 10'",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "expression": {
+                    "type": "string",
+                    "description": "要计算的数学表达式"
+                }
+            },
+            "required": ["expression"]
+        }
+    },
+    {
+        "name": "search",
+        "description": "搜索知识库获取信息",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "搜索关键词"
+                }
+            },
+            "required": ["query"]
+        }
+    }
+]
+</pre>
+
+<h2>4. Agent Loop 核心：不到 30 行</h2>
+
+<pre>
+from anthropic import Anthropic
+
+client = Anthropic()
+MAX_STEPS = 5
+
+def agent(user_input: str) -> str:
+    messages = [{"role": "user", "content": user_input}]
+
+    for step in range(MAX_STEPS):
+        print(f"\n--- Step {step + 1} ---")
+
+        # 1. 调 LLM
+        response = client.messages.create(
+            model="claude-sonnet-4-5-20250514",
+            max_tokens=1024,
+            system="你是一个助手。可以计算数学表达式和搜索知识库。用中文回答。",
+            messages=messages,
+            tools=tools,
+        )
+
+        # 2. 检查是否有 tool call
+        if response.stop_reason == "tool_use":
+            # 追加 assistant 的 tool_use 响应
+            messages.append({"role": "assistant", "content": response.content})
+
+            # 执行每个 tool call
+            tool_results = []
+            for block in response.content:
+                if block.type == "tool_use":
+                    print(f"  调用: {block.name}({block.input})")
+
+                    # 执行工具
+                    if block.name == "calculator":
+                        result = calculator(block.input["expression"])
+                    elif block.name == "search":
+                        result = search(block.input["query"])
+                    else:
+                        result = f"未知工具: {block.name}"
+
+                    print(f"  结果: {result}")
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": result,
+                    })
+
+            # 追加工具结果
+            messages.append({"role": "user", "content": tool_results})
+
+        else:
+            # 无 tool call → 最终答案
+            return response.content[0].text
+
+    return "达到最大步数限制，Agent 终止。"
+
+# 运行！
+print(agent("Java 是什么时候发布的？它的发布年份乘以 2 是多少？"))
+</pre>
+
+<h2>5. 运行效果</h2>
+
+<pre>
+--- Step 1 ---
+  调用: search({'query': 'Java 发布时间'})
+  结果: Java 由 Sun Microsystems 于 1995 年发布。
+
+--- Step 2 ---
+  调用: calculator({'expression': '1995 * 2'})
+  结果: 3990
+
+--- Step 3 ---
+Java 是在 1995 年由 Sun Microsystems 发布的。它的发布年份乘以 2 等于 3990。
+</pre>
+
+<div class="key-point">
+  看 Step 1 → Step 2：LLM 先搜到"1995"，然后用这个结果调 calculator。<br>
+  <strong>这就是 Agent 和 Workflow 的区别</strong>——Step 2 的参数来自 Step 1 的结果，是 LLM 动态决定的，不是写死在代码里的。
+</div>
+
+<h2>6. messages 数组的变化过程</h2>
+
+<p>理解 Agent Loop 的关键：跟踪 messages 每一步的变化。</p>
+
+<pre>
+Step 0: messages = [
+  {role: "user", content: "Java 是什么时候发布的？它的发布年份乘以 2 是多少？"}
+]
+
+Step 1 后: messages = [
+  {role: "user", content: "..."},
+  {role: "assistant", content: [tool_use: search("Java 发布时间")]},  ← LLM 决策
+  {role: "user", content: [tool_result: "1995 年发布..."]},          ← 工具结果
+]
+
+Step 2 后: messages = [
+  ... 上面的 3 条 ...,
+  {role: "assistant", content: [tool_use: calculator("1995 * 2")]},
+  {role: "user", content: [tool_result: "3990"]},
+]
+
+Step 3: stop_reason == "end_turn" → 返回最终文本
+</pre>
+
+<div class="analogy">
+  messages ≈ <strong>Servlet request 链</strong>。<br>
+  每轮追加两条：LLM 决策（assistant）+ 工具结果（user/tool）。<br>
+  下一轮 LLM 看到完整历史，所以能基于上一步结果做决策。
+</div>
+
+<div class="interview">
+  "请在白板上画出 Agent Loop 的流程图，标注每一步的数据结构变化。"<br><br>
+  回答要点：<br>
+  (1) 画出 while 循环：LLM 调用 → 判断 stop_reason → 执行/终止<br>
+  (2) 标注 messages 数组每步追加什么：assistant(tool_use) + user(tool_result)<br>
+  (3) 标注终止条件：stop_reason != "tool_use" 或达到 MAX_STEPS
+</div>
+
+<h2>7. 自测题</h2>
+
+<div class="quiz" id="q1">
+  <h3>题目 1：Agent Loop 的终止条件是什么？</h3>
+  <label class="quiz-option" onclick="check(this, false)">A. LLM 返回了 tool_call</label>
+  <label class="quiz-option" onclick="check(this, true)">B. LLM 的 stop_reason 不是 tool_use（返回纯文本）</label>
+  <label class="quiz-option" onclick="check(this, false)">C. 用户发送了新消息</label>
+  <label class="quiz-option" onclick="check(this, false)">D. 工具执行完毕</label>
+  <div class="quiz-feedback" id="q1f" style="background:#dcfce7;color:#166534;">
+    正确。LLM 不再调工具时说明已能直接回答，循环结束。达到 MAX_STEPS 也会强制终止。
+  </div>
+</div>
+
+<div class="quiz" id="q2">
+  <h3>题目 2：为什么 Step 2 的 calculator 参数是 1995？</h3>
+  <label class="quiz-option" onclick="check(this, false)">A. 代码写死的</label>
+  <label class="quiz-option" onclick="check(this, true)">B. LLM 从 Step 1 搜索结果中提取的</label>
+  <label class="quiz-option" onclick="check(this, false)">C. 用户输入的</label>
+  <label class="quiz-option" onclick="check(this, false)">D. 随机生成的</label>
+  <div class="quiz-feedback" id="q2f" style="background:#dcfce7;color:#166534;">
+    正确。LLM 看到 Step 1 结果"1995 年发布"，自主决定用 1995 调 calculator。参数来自中间结果，不是预定义的——这是 Agent 的核心特征。
+  </div>
+</div>
+
+<div class="quiz" id="q3">
+  <h3>题目 3：如果 MAX_STEPS 设为 1，上面的例子会怎样？</h3>
+  <label class="quiz-option" onclick="check(this, false)">A. 正常得到完整答案</label>
+  <label class="quiz-option" onclick="check(this, true)">B. 只完成搜索就终止，没计算和最终回答</label>
+  <label class="quiz-option" onclick="check(this, false)">C. 报错</label>
+  <label class="quiz-option" onclick="check(this, false)">D. 跳过搜索直接计算</label>
+  <div class="quiz-feedback" id="q3f" style="background:#dcfce7;color:#166534;">
+    正确。MAX_STEPS=1 意味着循环只跑一次。LLM 还没来得及调 calculator 和生成最终答案。MAX_STEPS 要根据任务复杂度合理设置。
+  </div>
+</div>
+
+<h2>8. 动手练习</h2>
+
+<div class="exercise">
+  <strong>练习：跑通你的第一个 Agent</strong><br><br>
+  步骤：<br>
+  1. 把完整代码保存为 <code>minimal_agent.py</code><br>
+  2. 设置环境变量：<code>export ANTHROPIC_API_KEY=sk-xxx</code><br>
+  3. 运行：<code>python minimal_agent.py</code><br>
+  4. 试不同问题：<br>
+  &nbsp;&nbsp;- "Python 是什么？"（只需 search，1 步）<br>
+  &nbsp;&nbsp;- "123 + 456 等于多少？"（只需 calculator，1 步）<br>
+  &nbsp;&nbsp;- "搜索 Agent 的定义，然后计算 2024 减去 1991"（需 2 步）<br>
+  5. 把 MAX_STEPS 改为 1，观察不完整输出<br><br>
+  <strong>选做</strong>：改用 OpenAI SDK 实现。注意三点差异：<br>
+  - <code>.choices[0].message.tool_calls</code> 代替 <code>.content</code><br>
+  - <code>json.loads(tc.function.arguments)</code> 代替 <code>block.input</code><br>
+  - <code>role: "tool"</code> 代替 <code>role: "user" + tool_result</code>
+</div>
+
+<div class="ref">
+  <a href="https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/overview" target="_blank">Anthropic: Tool Use Overview</a><br>
+  <a href="https://www.anthropic.com/engineering/building-effective-agents" target="_blank">Anthropic: Building Effective Agents</a>（本课实现的是 autonomous agent 模式）
+</div>
+
+<div class="tip">
+  完成练习后，有任何不清楚的地方直接问 Claude——这就是你的老师。<br>
+  下一课：<a href="0005-agent-robustness.html">L0005 - Agent 健壮性处理</a>——最大步数、超时、工具失败重试、错误回传，让 Agent 从"能跑"变成"能上线"。
+</div>
+
+<div class="nav">
+  <a href="0003-tool-schema-and-function-calling.html">← L0003: Tool Schema 与结构化输出</a>
+  <a href="0005-agent-robustness.html">L0005: Agent 健壮性处理 →</a>
+</div>
+
+<script>
+function check(el, isCorrect) {
+  const quiz = el.closest('.quiz');
+  const options = quiz.querySelectorAll('.quiz-option');
+  const feedback = quiz.querySelector('.quiz-feedback');
+  options.forEach(o => { o.style.pointerEvents = 'none'; });
+  if (isCorrect) {
+    el.classList.add('correct');
+  } else {
+    el.classList.add('wrong');
+    options.forEach(o => { if (o !== el && o.onclick.toString().includes('true')) o.classList.add('correct'); });
+  }
+  feedback.style.display = 'block';
+}
+</script>
+</body>
+</html>

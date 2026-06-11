@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L0008 - 记忆系统设计：让 Agent 记住你是谁</title>
+<style>
+  :root { --bg: #fafafa; --text: #1a1a1a; --accent: #2563eb; --border: #e5e7eb; --code-bg: #f3f4f6; --highlight: #fef3c7; --green-bg: #f0fdf4; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "Noto Sans SC", sans-serif; background: var(--bg); color: var(--text); line-height: 1.75; max-width: 780px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 1.75rem; margin-bottom: 0.5rem; border-bottom: 2px solid var(--accent); padding-bottom: 0.5rem; }
+  h2 { font-size: 1.35rem; margin-top: 2rem; color: var(--accent); }
+  h3 { font-size: 1.1rem; margin-top: 1.5rem; }
+  p { margin: 0.75rem 0; }
+  code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.9em; }
+  pre { background: var(--code-bg); padding: 1rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; font-size: 0.85rem; line-height: 1.6; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+  th, td { border: 1px solid var(--border); padding: 0.6rem 0.8rem; text-align: left; }
+  th { background: #f0f4ff; font-weight: 600; }
+  .quiz { background: #eff6ff; border-left: 4px solid var(--accent); padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .quiz h3 { color: var(--accent); margin-top: 0; }
+  .quiz-option { display: block; margin: 0.4rem 0; padding: 0.5rem 0.75rem; background: white; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+  .quiz-option:hover { border-color: var(--accent); background: #f0f4ff; }
+  .quiz-option.correct { background: #dcfce7; border-color: #16a34a; }
+  .quiz-option.wrong { background: #fee2e2; border-color: #dc2626; }
+  .quiz-feedback { margin-top: 0.75rem; padding: 0.75rem; border-radius: 6px; display: none; font-size: 0.9rem; }
+  .interview { background: var(--highlight); border-left: 4px solid #f59e0b; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .interview::before { content: "🎯 面试角度"; font-weight: 700; display: block; margin-bottom: 0.5rem; color: #92400e; }
+  .analogy { background: var(--green-bg); border-left: 4px solid #16a34a; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .analogy::before { content: "☕ Java 后端类比"; font-weight: 700; display: block; margin-bottom: 0.5rem; color: #166534; }
+  .key-point { background: #fef2f2; border: 1px solid #fecaca; padding: 0.75rem 1rem; border-radius: 8px; margin: 1rem 0; }
+  .key-point::before { content: "⚠️ 关键区分"; font-weight: 700; display: block; margin-bottom: 0.3rem; color: #dc2626; }
+  .nav { display: flex; justify-content: space-between; margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+  .nav a { color: var(--accent); text-decoration: none; }
+  .tip { background: #f8fafc; padding: 0.75rem 1rem; border-radius: 8px; margin: 1rem 0; font-size: 0.9rem; color: #475569; }
+  .exercise { background: var(--green-bg); border-left: 4px solid #16a34a; padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .exercise::before { content: "✏️ 动手练习"; font-weight: 700; display: block; margin-bottom: 0.5rem; color: #166534; }
+  .ref { background: #eff6ff; border-left: 4px solid var(--accent); padding: 1rem 1.25rem; margin: 1.5rem 0; border-radius: 0 8px 8px 0; }
+  .ref::before { content: "📖 延伸阅读"; font-weight: 700; display: block; margin-bottom: 0.5rem; color: var(--accent); }
+  .phase { background: #fef9c3; border: 2px solid #eab308; padding: 0.5rem 1rem; margin: 1.5rem 0; border-radius: 8px; font-size: 0.9rem; }
+  .phase::before { content: "📍 Phase 2 · Stage 2"; font-weight: 700; color: #854d0e; }
+  ul, ol { margin-left: 1.2rem; margin-bottom: 0.5rem; }
+  li { margin-bottom: 0.3rem; }
+  .diagram { background: white; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin: 1.25rem 0; text-align: center; overflow-x: auto; }
+  .diagram svg { max-width: 100%; height: auto; }
+  .diagram figcaption { font-size: 0.85rem; color: #64748b; margin-top: 0.5rem; }
+  @media print { body { max-width: 100%; } .diagram { page-break-inside: avoid; } }
+</style>
+</head>
+<body>
+
+<h1>L0008 - 记忆系统设计</h1>
+<p><strong>短期记忆、会话记忆、长期记忆——三层架构让 Agent 从"金鱼脑"变成"老同事"</strong></p>
+
+<div class="phase">L2.3 · 记忆系统设计</div>
+
+<h2>1. 为什么 Agent 需要记忆？</h2>
+
+<p>L0004 的 Agent 每次对话从零开始，没有记忆。这意味着：</p>
+
+<ul>
+  <li>你说过"我是 Java 开发者"，下一次提问它忘了</li>
+  <li>你让它查了 A，它查了，但 5 轮后再问 A 它又查一遍</li>
+  <li>关掉终端重新运行，一切归零</li>
+</ul>
+
+<div class="analogy">
+  没有 memory 的 Agent ≈ <strong>无状态的 REST API</strong>（每次请求独立，不记得上次调用）。<br>
+  加上 memory 的 Agent ≈ <strong>有状态 Session</strong>（记住用户偏好、上下文、历史操作）。
+</div>
+
+<h2>2. 三层记忆架构</h2>
+
+<table>
+  <tr><th>层级</th><th>存储内容</th><th>生命周期</th><th>类比</th></tr>
+  <tr><td>短期记忆</td><td>当前对话的 messages 数组</td><td>单次会话</td><td>HttpServletRequest 属性</td></tr>
+  <tr><td>会话记忆</td><td>对话摘要、关键实体</td><td>单次会话（压缩后保留）</td><td>HttpSession</td></tr>
+  <tr><td>长期记忆</td><td>用户偏好、知识积累</td><td>跨会话（持久化）</td><td>MySQL 用户表</td></tr>
+</table>
+
+<figure class="diagram">
+<svg viewBox="0 0 560 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="三层记忆架构">
+  <!-- 第 1 层：长期记忆（顶层，最深色）-->
+  <rect x="40" y="25" width="480" height="78" rx="10" fill="#2563eb" stroke="#1e40af" stroke-width="2"/>
+  <text x="280" y="54" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">长期记忆（DB / File）</text>
+  <text x="280" y="76" text-anchor="middle" font-size="12" fill="#dbeafe">用户偏好 · 知识库 · 历史摘要</text>
+  <text x="510" y="44" text-anchor="end" font-size="11" fill="#bfdbfe">跨会话持久化</text>
+
+  <!-- 第 2 层：会话记忆 -->
+  <rect x="40" y="113" width="480" height="78" rx="10" fill="#bfdbfe" stroke="#3b82f6" stroke-width="2"/>
+  <text x="280" y="142" text-anchor="middle" font-size="16" font-weight="700" fill="#1e3a8a">会话记忆（摘要）</text>
+  <text x="280" y="164" text-anchor="middle" font-size="12" fill="#1e40af">关键实体 · 决策记录 · 中间结果</text>
+  <text x="510" y="132" text-anchor="end" font-size="11" fill="#1e40af">单次会话内</text>
+
+  <!-- 第 3 层：短期记忆（底层，最浅）-->
+  <rect x="40" y="201" width="480" height="78" rx="10" fill="#eff6ff" stroke="#60a5fa" stroke-width="2"/>
+  <text x="280" y="230" text-anchor="middle" font-size="16" font-weight="700" fill="#1e3a8a">短期记忆（messages 数组）</text>
+  <text x="280" y="252" text-anchor="middle" font-size="12" fill="#475569">system + user + assistant + tool 交互历史</text>
+  <text x="510" y="220" text-anchor="end" font-size="11" fill="#475569">当前上下文窗口</text>
+
+  <!-- 左侧层级标尺 -->
+  <text x="25" y="64" text-anchor="middle" font-size="10" fill="#94a3b8" transform="rotate(-90 25 64)">持久</text>
+  <text x="25" y="240" text-anchor="middle" font-size="10" fill="#94a3b8" transform="rotate(-90 25 240)">易失</text>
+</svg>
+<figcaption>三层记忆：颜色越深生命周期越长，上层持久、下层易失</figcaption>
+</figure>
+
+<h2>3. 短期记忆：messages 数组</h2>
+
+<p>这就是 L0004 一直在用的——messages 数组本身就是短期记忆。LLM 每轮都能看到完整历史。</p>
+
+<p><strong>问题</strong>：上下文窗口有限。GPT-4o 是 128K tokens，Claude Sonnet 是 200K。看似很大，但一个复杂 Agent 跑 20 轮可能就用完了。</p>
+
+<div class="key-point">
+  <strong>短期记忆的核心挑战：上下文窗口溢出。</strong><br>
+  解决方案：<br>
+  (1) 直接截断：只保留最近 N 轮（简单粗暴，丢失早期信息）<br>
+  (2) 摘要压缩：把早期对话压缩成一段摘要（保留要点，丢失细节）<br>
+  (3) 混合策略：最近 5 轮保留原文 + 更早的压缩成摘要<br>
+  Claude Code 的 compaction 机制就是这个原理。
+</div>
+
+<pre>
+def manage_messages(messages: list, max_recent: int = 5) -> list:
+    """管理 messages：保留最近 N 轮 + 摘要"""
+    if len(messages) <= max_recent * 2 + 1:
+        return messages
+
+    system_msg = messages[0]
+    early = messages[1:-max_recent * 2]
+    recent = messages[-max_recent * 2:]
+
+    # 早期对话压缩成摘要
+    summary = summarize_conversation(early)
+
+    return [
+        system_msg,
+        {"role": "user", "content": f"[之前对话摘要]\n{summary}"},
+        {"role": "assistant", "content": "好的，我记住了之前的对话内容。"},
+        *recent,
+    ]
+
+def summarize_conversation(messages: list) -> str:
+    """用 LLM 把历史对话压缩成摘要"""
+    text = "\n".join(f"{m['role']}: {m['content'][:200]}" for m in messages)
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": f"请用 3-5 句话总结以下对话的关键信息：\n\n{text}"}],
+        temperature=0,
+    )
+    return response.choices[0].message.content
+</pre>
+
+<h2>4. 会话记忆：实体跟踪</h2>
+
+<p>会话记忆不只是摘要，还需要跟踪对话中的<strong>关键实体</strong>。</p>
+
+<pre>
+class SessionMemory:
+    def __init__(self):
+        self.entities = {}       # {"用户名": "张三", "项目": "Agent"}
+        self.decisions = []      # 决策记录
+        self.facts = []          # 已确认事实
+
+    def get_context_string(self) -> str:
+        parts = []
+        if self.entities:
+            parts.append("已知实体: " + ", ".join(f"{k}={v}" for k, v in self.entities.items()))
+        if self.decisions:
+            parts.append("已做决策: " + "; ".join(self.decisions[-3:]))
+        if self.facts:
+            parts.append("已确认事实: " + "; ".join(self.facts[-5:]))
+        return "\n".join(parts) if parts else ""
+</pre>
+
+<div class="analogy">
+  会话记忆 ≈ <strong>HttpSession + @ModelAttribute</strong>。<br>
+  短期记忆 ≈ request scope，会话记忆 ≈ session scope。<br>
+  实体跟踪 ≈ 自动从表单绑定到 model——自动提取对话中的关键信息。
+</div>
+
+<h2>5. 长期记忆：跨会话持久化</h2>
+
+<pre>
+import json
+from pathlib import Path
+
+class LongTermMemory:
+    def __init__(self, user_id: str, storage_dir: str = "./memory"):
+        self.path = Path(storage_dir) / f"{user_id}.json"
+        self.path.parent.mkdir(exist_ok=True)
+        self.data = self._load()
+
+    def _load(self) -> dict:
+        if self.path.exists():
+            with open(self.path, encoding="utf-8") as f:
+                return json.load(f)
+        return {"preferences": {}, "knowledge": [], "summaries": []}
+
+    def _save(self):
+        with open(self.path, "w", encoding="utf-8") as f:
+            json.dump(self.data, f, ensure_ascii=False, indent=2)
+
+    def set_preference(self, key: str, value: str):
+        self.data["preferences"][key] = value
+        self._save()
+
+    def add_knowledge(self, fact: str):
+        self.data["knowledge"].append(fact)
+        if len(self.data["knowledge"]) > 100:
+            self.data["knowledge"] = self.data["knowledge"][-100:]
+        self._save()
+
+    def get_system_context(self) -> str:
+        parts = []
+        if self.data["preferences"]:
+            prefs = ", ".join(f"{k}: {v}" for k, v in self.data["preferences"].items())
+            parts.append(f"用户偏好: {prefs}")
+        if self.data["knowledge"]:
+            parts.append(f"已知知识: {'; '.join(self.data['knowledge'][-5:])}")
+        return "\n".join(parts) if parts else ""
+
+# 使用
+ltm = LongTermMemory("user_zhangsan")
+ltm.set_preference("language", "中文")
+ltm.set_preference("tech_stack", "Java/Spring")
+ltm.add_knowledge("用户在做一个 AI Agent 项目")
+print(ltm.get_system_context())
+# → 用户偏好: language: 中文, tech_stack: Java/Spring
+#   已知知识: 用户在做一个 AI Agent 项目
+</pre>
+
+<div class="analogy">
+  长期记忆 ≈ <strong>数据库用户表 + 偏好设置</strong>。<br>
+  <code>preferences</code> ≈ user_settings 表，<code>knowledge</code> ≈ user_activity_log 表。<br>
+  JSON 文件 ≈ 开发阶段 SQLite，生产换 MySQL/pgvector。
+</div>
+
+<h2>6. 三层记忆协作</h2>
+
+<pre>
+def build_system_prompt(user_id: str, session_memory: SessionMemory) -> str:
+    parts = [BASE_SYSTEM_PROMPT]
+
+    # 长期记忆
+    ltm = LongTermMemory(user_id)
+    if ltm_ctx := ltm.get_system_context():
+        parts.append(f"\n[长期记忆]\n{ltm_ctx}")
+
+    # 会话记忆
+    if session_ctx := session_memory.get_context_string():
+        parts.append(f"\n[会话记忆]\n{session_ctx}")
+
+    return "\n".join(parts)
+</pre>
+
+<div class="interview">
+  "Agent 的记忆系统怎么设计？短期记忆和长期记忆有什么区别？"<br><br>
+  回答要点：<br>
+  (1) <strong>三层架构</strong>：短期（messages）、会话（实体+摘要）、长期（持久化）<br>
+  (2) 类比 Web：request scope → session scope → DB<br>
+  (3) 短期记忆挑战是窗口溢出——用摘要压缩解决<br>
+  (4) 长期记忆存用户偏好、知识积累、历史摘要<br>
+  (5) 生产级可用向量库做语义检索（mem0 项目）
+</div>
+
+<h2>7. 自测题</h2>
+
+<div class="quiz" id="q1">
+  <h3>题目 1：短期记忆溢出时，最佳策略是什么？</h3>
+  <label class="quiz-option" onclick="check(this, false)">A. 直接截断，只保留最后一轮</label>
+  <label class="quiz-option" onclick="check(this, true)">B. 把早期对话压缩成摘要，保留最近几轮原文</label>
+  <label class="quiz-option" onclick="check(this, false)">C. 换一个更大上下文窗口的模型</label>
+  <label class="quiz-option" onclick="check(this, false)">D. 不处理，让它自己截断</label>
+  <div class="quiz-feedback" id="q1f" style="background:#dcfce7;color:#166534;">
+    正确。混合策略最优：摘要保留早期要点，原文保留最近细节。Claude Code 的 compaction 就是这个原理。
+  </div>
+</div>
+
+<div class="quiz" id="q2">
+  <h3>题目 2：长期记忆应该存储在什么介质？</h3>
+  <label class="quiz-option" onclick="check(this, false)">A. 内存中的全局变量</label>
+  <label class="quiz-option" onclick="check(this, true)">B. 持久化存储（文件/数据库），重启后不丢失</label>
+  <label class="quiz-option" onclick="check(this, false)">C. LLM 的 system prompt 中写死</label>
+  <label class="quiz-option" onclick="check(this, false)">D. 不需要长期记忆</label>
+  <div class="quiz-feedback" id="q2f" style="background:#dcfce7;color:#166534;">
+    正确。长期记忆的核心是跨会话持久化。内存变量重启丢失，prompt 写死无法动态更新。文件/数据库是正确选择。
+  </div>
+</div>
+
+<div class="quiz" id="q3">
+  <h3>题目 3：三层记忆架构类比 Web 开发？</h3>
+  <label class="quiz-option" onclick="check(this, true)">A. 短期 = request scope，会话 = session scope，长期 = DB</label>
+  <label class="quiz-option" onclick="check(this, false)">B. 短期 = cookie，会话 = session，长期 = cache</label>
+  <label class="quiz-option" onclick="check(this, false)">C. 三层都是数据库，只是表不同</label>
+  <label class="quiz-option" onclick="check(this, false)">D. 记忆不需要分层</label>
+  <div class="quiz-feedback" id="q3f" style="background:#dcfce7;color:#166534;">
+    正确。短期随请求产生消失（request scope），会话跨请求保持（session scope），长期持久化到数据库。
+  </div>
+</div>
+
+<h2>8. 动手练习</h2>
+
+<div class="exercise">
+  <strong>练习：给 Agent 加上长期记忆</strong><br><br>
+  步骤：<br>
+  1. 实现 <code>LongTermMemory</code> 类（JSON 文件存储）<br>
+  2. 在 Agent Loop 的 system prompt 中注入长期记忆<br>
+  3. 当用户说"记住我喜欢 Java"时，Agent 自动存储<br>
+  4. 关闭程序重新运行，问"我喜欢什么编程语言？"，Agent 能回答<br>
+  5. 实现对话摘要压缩（<code>manage_messages</code>）<br><br>
+  预期产出：<code>agent_with_memory.py</code><br>
+  选做：用 <a href="https://github.com/mem0ai/mem0" target="_blank">mem0</a> 替换手动 JSON 存储。
+</div>
+
+<div class="ref">
+  <a href="https://github.com/mem0ai/mem0" target="_blank">mem0: AI 记忆层</a><br>
+  <a href="https://github.com/letta-ai/letta" target="_blank">Letta: Stateful Agent 平台</a><br>
+  <a href="https://docs.anthropic.com/en/docs/build-with-claude/conversation-management" target="_blank">Anthropic: Conversation Management</a><br>
+  <a href="https://lilianweng.github.io/posts/2023-06-23-agent/" target="_blank">Lilian Weng: LLM Agents（Memory 章节）</a>
+</div>
+
+<div class="tip">
+  完成练习后，有任何不清楚的地方直接问 Claude——这就是你的老师。<br>
+  下一课：<a href="0009-rag-agent-pitfalls.html">L0009 - RAG Agent 常见问题</a>——幻觉引用、空结果、重复调用，实战排坑指南。
+</div>
+
+<div class="nav">
+  <a href="0007-diverse-tool-integration.html">← L0007: 多样化工具接入</a>
+  <a href="0009-rag-agent-pitfalls.html">L0009: RAG Agent 常见问题 →</a>
+</div>
+
+<script>
+function check(el, isCorrect) {
+  const quiz = el.closest('.quiz');
+  const options = quiz.querySelectorAll('.quiz-option');
+  const feedback = quiz.querySelector('.quiz-feedback');
+  options.forEach(o => { o.style.pointerEvents = 'none'; });
+  if (isCorrect) {
+    el.classList.add('correct');
+  } else {
+    el.classList.add('wrong');
+    options.forEach(o => { if (o !== el && o.onclick.toString().includes('true')) o.classList.add('correct'); });
+  }
+  feedback.style.display = 'block';
+}
+</script>
+</body>
+</html>
